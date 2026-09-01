@@ -1,5 +1,7 @@
 <p align="center">
-  <img src="website/assets/happylens-logo.svg" alt="HappyLens logo" width="520">
+  <a href="https://wenguanzhang.github.io/HappyLens/">
+    <img src="website/assets/happylens-logo.svg" alt="HappyLens logo" width="520">
+  </a>
 </p>
 
 <p align="center">
@@ -12,6 +14,9 @@
   </a>
   <img src="https://img.shields.io/badge/python-3.12-blue.svg" alt="Python 3.12">
   <img src="https://img.shields.io/badge/PyTorch-CUDA-ee4c2c.svg" alt="PyTorch and CUDA">
+  <a href="https://happylens.readthedocs.io/en/latest/">
+    <img src="https://readthedocs.org/projects/happylens/badge/?version=latest" alt="Documentation status">
+  </a>
 </p>
 
 <p align="center">
@@ -19,7 +24,9 @@
   ·
   <a href="#-workflows">Workflows</a>
   ·
-  <a href="doc/README.md">Documentation</a>
+  <a href="https://wenguanzhang.github.io/HappyLens/">Website</a>
+  ·
+  <a href="https://happylens.readthedocs.io/en/latest/">Documentation</a>
   ·
   <a href="#-quick-start">Quick Start</a>
   ·
@@ -85,13 +92,13 @@ See the [Example Gallery](doc/gallery/introduction.md) for execution assumptions
 
 ## 📚 Documentation
 
-The [HappyLens documentation](doc/README.md) includes the user guide, workflow gallery, conventions, configuration format, and API reference.
+The [online HappyLens documentation](https://happylens.readthedocs.io/en/latest/) includes the user guide, workflow gallery, conventions, configuration format, and API reference. Visit the [project website](https://wenguanzhang.github.io/HappyLens/) for an overview of HappyLens and its featured workflows.
 
-- [Start Here](doc/start_here.md)
-- [Five-minute Quickstart](doc/quickstart.md)
-- [Architecture Overview](doc/architecture.md)
-- [Optical API Reference](doc/lens_api.md)
-- [Imaging and Networks API](doc/nets_api.md)
+- [Start Here](https://happylens.readthedocs.io/en/latest/start_here.html)
+- [Five-minute Quickstart](https://happylens.readthedocs.io/en/latest/quickstart.html)
+- [Architecture Overview](https://happylens.readthedocs.io/en/latest/architecture.html)
+- [Optical API Reference](https://happylens.readthedocs.io/en/latest/lens_api.html)
+- [Imaging and Networks API](https://happylens.readthedocs.io/en/latest/nets_api.html)
 
 Documentation sources are stored in [`doc/`](doc). Read the Docs builds them using [`.readthedocs.yaml`](.readthedocs.yaml).
 
