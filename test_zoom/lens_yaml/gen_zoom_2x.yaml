@@ -1,0 +1,95 @@
+DEVICE: "cuda:0"
+SEED: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+
+MATERIAL_CATALOG:
+  GLASS: schott
+  PLASTIC: plastic
+
+WAVELENGTHS: [480.e-6, 550.e-6, 650.e-6]
+WAVEWEIGHTS: [1., 1., 1.]
+P_WAVE: 1
+
+MAX_VIEW: [26.565, 21.80, 18.435, 15.945, 14.036]
+NORM_VIEWS: [0., 0.5, 0.707, 1.0]
+VIG: null
+AZIMUTHS: [0.]
+
+GROUP_STRUCTURE: 'FMM'
+
+GROUP_TYPE: 'S|S|SS'
+SURF_TYPE: 'Q|Q|QQ' # S: Sphere, A: Asphere, Q: Qcon
+MAT_TYPE: 'K|R|RR' # K: Crown, F: Flint, M: Mix, R: Random
+MAT_CATA: 'G|P|PP' # G: Glass, P: Plastic
+
+# GROUP_TYPE: 'S|S|DD' # S: siglets, D: doublets
+# SURF_TYPE: 'A|A|SS' # S: Sphere, A: Asphere, Q: Qcon
+# MAT_TYPE: 'K|R|RR' # K: Crown, F: Flint, M: Mix, R: Random
+# MAT_CATA: 'G|P|GG' # G: Glass, P: Plastic
+
+# GROUP_TYPE: 'S|S|SD' # S: siglets, D: doublets
+# SURF_TYPE: 'A|A|AS' # S: Sphere, A: Asphere, Q: Qcon
+# MAT_TYPE: 'K|R|RR' # K: Crown, F: Flint, M: Mix, R: Random
+# MAT_CATA: 'G|P|PG' # G: Glass, P: Plastic
+
+DELANO_SYS: 50000
+LR_DELANO: 1.e-3
+STOP_POS: 2
+STOP_FIX: True
+
+SYS_NUM: 180
+CFG_NUM: 5
+FIX_RADIUS_SURF: []
+MAX_RADIUS: null
+PRE_SAMP: 50
+SAMP_METHOD: 'ring'
+SAMP_RAYS: 3
+
+MERIT: {
+  # A
+  EFL: {target: [8.0, 10.0, 12.0, 14.0, 16.0], weight: 50.},
+  FNO: {target: [2.50, 2.94, 3.33, 3.68, 4.00], weight: 1.},
+  SPOT: {ref: 'chief', k: 1., weight: 20.},
+  # WAVEFRONT: {mode: 'tv', weight: 0.01},
+  DISTOR: {target: 0.1, weight: 20.},
+  LATERAL: {ref: 'rms', weight: 0.2},
+  # B
+  BFL: {target: 1., weight: 1.},
+  TOTR: {target: 22.5, weight: 1.},
+  GLA_MIN_THICK: {min_thick: 0.5, td_ratio: 0.1, weight: 200.},
+  GLA_MAX_THICK: {max_thick: 10.0, td_ratio: 1.0, weight: 1.},
+  AIR_THICK: {FF_target: 0.2, FM_target: 0.3, MM_target: 0.5, weight: 200.},
+  SURF_K: {target: 45., weight: 5.},
+  GLA_Z: {z_min: 0.15, weight: 200.},
+  FIX_LENS: {weight: 5.},
+  SMOOTH_ZOOM: {weight: 5.},
+  # C
+  ANGLE: {target: 60., weight: 1.},
+  ROC: {
+    0: {s_id: 1, sign: 'p', weight: 100.},
+  }
+}
+
+P_FIX: 0.1
+TOP_PICK: True
+
+HYBRID_MODE: 'switch'
+
+SHADE: {
+  iters: 500,
+  F: 0.5,
+  CR: 0.5,
+  c: 10,
+  p: 0.1
+}
+PRE_OPT: False
+
+EPOCH: [2000, 500, 500, 500, 500, 500, 500]
+MAX_STATE_T: 2000
+ADD_PARAM: [['ai4', 'ai6'], null, null, null, null, null, null]
+OPT_MAT_STAGE: [1, 1, 1, 1, 1, 1, 0]
+LR_OPT: 1.e-2
+LR_SCALE: 10.
+DROPOUT: 0.1
+
+OPTIC_UPDATE_FREQ: 10
+SAVE_FREQ: 100

@@ -1,0 +1,81 @@
+{
+    "OBJECT": {
+        "material": "VACUUM",
+        "distance": null
+    },
+    "Surface1": {
+        "type": "Standard",
+        "stop": false,
+        "radius": 2.997355194192037,
+        "material": "LAF2",
+        "roc": 7.721204236433188,
+        "thick": 1.0252357623749806,
+        "conic": 0.0
+    },
+    "Surface2": {
+        "type": "Standard",
+        "stop": false,
+        "radius": 2.753337139497068,
+        "material": "VACUUM",
+        "roc": 21.180137536189584,
+        "thick": 0.04996608528446831,
+        "conic": 0.0
+    },
+    "Surface3": {
+        "type": "Standard",
+        "stop": false,
+        "radius": 2.4051639637886395,
+        "material": "PK2",
+        "roc": 3.5178960701059783,
+        "thick": 1.2681330459540539,
+        "conic": 0.0
+    },
+    "Surface4": {
+        "type": "Standard",
+        "stop": false,
+        "radius": 2.195925443494419,
+        "material": "F4",
+        "roc": 14.828959826334469,
+        "thick": 0.4391242722897698,
+        "conic": 0.0
+    },
+    "Surface5": {
+        "type": "Standard",
+        "stop": false,
+        "radius": 1.683842557915817,
+        "material": "VACUUM",
+        "roc": 2.5039354949019996,
+        "thick": 1.4778150739264526,
+        "conic": 0.0
+    },
+    "Surface6": {
+        "type": "Standard",
+        "stop": true,
+        "radius": 1.0618104794433745,
+        "material": "VACUUM",
+        "roc": null,
+        "thick": 3.6923501197783644,
+        "conic": 0.0
+    },
+    "Surface7": {
+        "type": "Standard",
+        "stop": false,
+        "radius": 2.680925782039746,
+        "material": "LAF2",
+        "roc": -15.127660515666095,
+        "thick": 1.0619167482345637,
+        "conic": 0.0
+    },
+    "Surface8": {
+        "type": "Standard",
+        "stop": false,
+        "radius": 2.8347838246084764,
+        "material": "VACUUM",
+        "roc": -5.633551751972034,
+        "thick": 7.166291843420335,
+        "conic": 0.0
+    },
+    "IMAGE": {
+        "radius": 4.053921102381587
+    }
+}

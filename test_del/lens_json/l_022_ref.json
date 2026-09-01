@@ -1,0 +1,90 @@
+{
+    "OBJECT": {
+        "material": "VACUUM",
+        "distance": null
+    },
+    "Surface1": {
+        "type": "Standard",
+        "stop": false,
+        "radius": 4.27501485,
+        "material": "BASF51",
+        "roc": 10.868650031628013,
+        "thick": 1.5758070623143543,
+        "conic": 0.0
+    },
+    "Surface2": {
+        "type": "Standard",
+        "stop": false,
+        "radius": 3.990875064521347,
+        "material": "VACUUM",
+        "roc": 51.37009995951087,
+        "thick": 0.04999857630303664,
+        "conic": 0.0
+    },
+    "Surface3": {
+        "type": "Standard",
+        "stop": false,
+        "radius": 3.5016404706241686,
+        "material": "BAF3",
+        "roc": 5.645282308472893,
+        "thick": 1.9789112405098208,
+        "conic": 0.0
+    },
+    "Surface4": {
+        "type": "Standard",
+        "stop": false,
+        "radius": 3.2379039176703115,
+        "material": "SF4",
+        "roc": 27.45173116347225,
+        "thick": 0.8302031469771636,
+        "conic": 0.0
+    },
+    "Surface5": {
+        "type": "Standard",
+        "stop": false,
+        "radius": 2.5641610127209704,
+        "material": "VACUUM",
+        "roc": 3.771923038609907,
+        "thick": 3.223443783815765,
+        "conic": 0.0
+    },
+    "Surface6": {
+        "type": "Standard",
+        "stop": true,
+        "radius": 1.7438589,
+        "material": "VACUUM",
+        "roc": null,
+        "thick": 2.364457719205591,
+        "conic": 0.0
+    },
+    "Surface7": {
+        "type": "Standard",
+        "stop": false,
+        "radius": 2.018800329927383,
+        "material": "SF10",
+        "roc": -13.937466355522568,
+        "thick": 1.7103521775897514,
+        "conic": 0.0
+    },
+    "Surface8": {
+        "type": "Standard",
+        "stop": false,
+        "radius": 2.288616129143861,
+        "material": "BASF51",
+        "roc": 16.30022902351074,
+        "thick": 2.288616589174147,
+        "conic": 0.0
+    },
+    "Surface9": {
+        "type": "Standard",
+        "stop": false,
+        "radius": 2.496180871724486,
+        "material": "VACUUM",
+        "roc": -7.805755030814366,
+        "thick": 13.27036491038882,
+        "conic": 0.0
+    },
+    "IMAGE": {
+        "radius": 3.9944187825427715
+    }
+}

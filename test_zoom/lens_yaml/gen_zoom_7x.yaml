@@ -1,0 +1,97 @@
+DEVICE: "cuda:0"
+SEED: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+
+MATERIAL_CATALOG:
+  GLASS: schott
+  PLASTIC: plastic
+
+WAVELENGTHS: [480.e-6, 550.e-6, 650.e-6]
+WAVEWEIGHTS: [1., 1., 1.]
+P_WAVE: 1
+
+MAX_VIEW: [28.0, 9.8, 6.0, 4.3]
+NORM_VIEWS: [0., 0.5, 0.707, 1.0]
+VIG: {
+  VUY: [0.0, 0.25, 0.3535, 0.5],
+  VLY: [0.0, 0.25, 0.3535, 0.5],
+  VUX: [0.0, 0.0, 0.0, 0.0],
+  VLX: [0.0, 0.0, 0.0, 0.0],
+}
+AZIMUTHS: [0.]
+
+GROUP_STRUCTURE: 'FMMF'
+
+GROUP_TYPE: 'DS|SD|SD|SSD'
+SURF_TYPE: 'SS|SS|SS|SSS' # S: Sphere, A: Asphere, Q: Qcon
+MAT_TYPE: 'RR|RR|RR|RRR' # K: Crown, F: Flint, M: Mix, R: Random
+MAT_CATA: 'GG|GG|GG|GGG' # G: Glass, P: Plastic
+
+# GROUP_TYPE: 'DS|SSD|DS|SD'
+# SURF_TYPE: 'SS|SSS|SS|SS' # S: Sphere, A: Asphere, Q: Qcon
+# MAT_TYPE: 'RR|RRR|RR|RR' # K: Crown, F: Flint, M: Mix, R: Random
+# MAT_CATA: 'GG|GGG|GG|GG' # G: Glass, P: Plastic
+
+# GROUP_TYPE: 'DSS|DS|SD|SD'
+# SURF_TYPE: 'SSS|SS|SS|SS' # S: Sphere, A: Asphere, Q: Qcon
+# MAT_TYPE: 'RRR|RR|RR|RR' # K: Crown, F: Flint, M: Mix, R: Random
+# MAT_CATA: 'GGG|GG|GG|GG' # G: Glass, P: Plastic
+
+DELANO_SYS: 50000
+LR_DELANO: 1.e-3
+STOP_POS: 2
+STOP_FIX: True
+
+SYS_NUM: 100
+CFG_NUM: 4
+FIX_RADIUS_SURF: []
+MAX_RADIUS: null
+PRE_SAMP: 50
+SAMP_METHOD: 'ring'
+SAMP_RAYS: 3
+
+MERIT: {
+  # A
+  EFL: {target: [6.1, 18.5, 30.5, 42.5], weight: 50},
+  FNO: {target: [2., 2., 2., 2.], weight: 1.},
+  SPOT: {ref: 'chief', k: 1., weight: 20.},
+  # WAVEFRONT: {mode: 'tv', weight: 0.01},
+  DISTOR: {target: 0.1, weight: 20.},
+  LATERAL: {ref: 'rms', weight: 0.2},
+  # B
+  BFL: {target: 6.5, weight: 1.},
+  TOTR: {target: 80., weight: 1.},
+  GLA_MIN_THICK: {min_thick: 0.5, td_ratio: 0.1, weight: 200.},
+  GLA_MAX_THICK: {max_thick: 10.0, td_ratio: 1.0, weight: 1.},
+  AIR_THICK: {FF_target: 0.5, FM_target: 1.0, MM_target: 2.5, weight: 200.},
+  SURF_K: {target: 45., weight: 5.},
+  GLA_Z: {z_min: 0.15, weight: 200.},
+  FIX_LENS: {weight: 5.},
+  SMOOTH_ZOOM: {weight: 5.},
+  # C
+  ANGLE: {target: 60., weight: 1.},
+}
+
+P_FIX: 0.1
+TOP_PICK: False
+
+HYBRID_MODE: 'auto'
+
+SHADE: {
+  iters: 500,
+  F: 0.5,
+  CR: 0.5,
+  c: 10,
+  p: 0.1
+}
+PRE_OPT: False
+
+EPOCH: [2000, 500, 500, 500, 500, 500, 500, 500, 500, 500, 500]
+MAX_STATE_T: 2000
+ADD_PARAM: [null, null, null, null, null, null, null, null, null, null, null]
+OPT_MAT_STAGE: [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0]
+LR_OPT: 1.e-2
+LR_SCALE: 10.
+DROPOUT: 0.1
+
+OPTIC_UPDATE_FREQ: 10
+SAVE_FREQ: 100

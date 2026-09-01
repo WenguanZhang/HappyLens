@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Run the HappyLens multi-configuration zoom lens structure-generation workflow and explore the source code.">
+  <meta name="theme-color" content="#237b8e">
+  <title>Zoom Lens Workflow | HappyLens</title>
+  <link rel="icon" href="../assets/happylens-icon.svg?v=mark-only-1" type="image/svg+xml">
+  <link rel="stylesheet" href="../styles.css?v=workflow-video-24">
+</head>
+<body class="workflow-detail-page">
+  <header class="site-header">
+    <a class="brand" href="../index.html" aria-label="HappyLens home"><img src="../assets/happylens-logo.svg?v=shared-logo-1" alt="HappyLens"></a>
+    <nav aria-label="Workflow navigation">
+      <a href="../index.html">Home</a>
+      <a href="../index.html#capabilities">Features</a>
+      <a href="https://happylens.readthedocs.io/en/latest/gallery/zoom_generation.html">Documentation</a>
+      <a class="nav-button" href="https://github.com/WenguanZhang/HappyLens/tree/main/test_zoom">GitHub code</a>
+    </nav>
+    <details class="mobile-menu">
+      <summary aria-label="Open navigation menu"><span></span><span></span><span></span></summary>
+      <div class="mobile-menu-panel">
+        <a href="../index.html">Home</a>
+        <a href="../index.html#capabilities">Features</a>
+        <a href="https://happylens.readthedocs.io/en/latest/gallery/zoom_generation.html">Documentation</a>
+        <a class="nav-button" href="https://github.com/WenguanZhang/HappyLens/tree/main/test_zoom">GitHub code</a>
+      </div>
+    </details>
+  </header>
+
+  <main>
+    <section class="workflow-detail-hero">
+      <div class="shell">
+        <p class="eyebrow">HAPPYLENS WORKFLOW · MULTI-CONFIGURATION</p>
+        <h1>Zoom lens structure generation</h1>
+        <p>Multi-configuration zoom-lens generation examples spanning zoom ratios from 2× to 40×.</p>
+      </div>
+    </section>
+
+    <div class="shell workflow-detail-main">
+      <section class="workflow-detail-section">
+        <div class="workflow-section-title">
+          <h2>Automatic generation process</h2>
+        </div>
+        <div class="workflow-demo-grid">
+          <figure class="workflow-demo-frame">
+            <video width="900" height="1280" autoplay muted loop playsinline preload="metadata" aria-label="7× zoom lens multi-configuration structure-search animation">
+              <source src="../assets/workflows/zoom-lens-7x-optimization.mp4" type="video/mp4">
+              <a href="../assets/workflows/zoom-lens-7x-optimization.gif">View the 7× zoom lens optimization animation</a>
+            </video>
+            <figcaption>7× zoom structure · four configurations</figcaption>
+          </figure>
+          <figure class="workflow-demo-frame">
+            <video width="900" height="1550" autoplay muted loop playsinline preload="metadata" aria-label="20× zoom lens multi-configuration structure-search animation">
+              <source src="../assets/workflows/zoom-lens-20x-optimization.mp4" type="video/mp4">
+              <a href="../assets/workflows/zoom-lens-20x-optimization.gif">View the 20× zoom lens optimization animation</a>
+            </video>
+            <figcaption>20× zoom structure · five configurations</figcaption>
+          </figure>
+        </div>
+      </section>
+
+      <section class="workflow-detail-section">
+        <div class="workflow-section-title">
+          <h2>Run the example</h2>
+        </div>
+        <div class="workflow-run-grid">
+          <article class="workflow-panel">
+            <span class="workflow-panel-label">COMMAND</span>
+            <h3>Generate a zoom lens</h3>
+            <p>From the directory containing the cloned HappyLens repository:</p>
+            <pre class="workflow-command"><code>cd HappyLens/test_zoom
+python test_gen_zoom.py --name=gen_zoom_7x</code></pre>
+            <div class="workflow-actions">
+              <a class="button primary" href="https://github.com/WenguanZhang/HappyLens/tree/main/test_zoom">View test_zoom on GitHub</a>
+              <a class="button secondary" href="https://happylens.readthedocs.io/en/latest/gallery/zoom_generation.html">Read the guide</a>
+            </div>
+          </article>
+
+          <article class="workflow-panel">
+            <span class="workflow-panel-label">CONFIGURATIONS</span>
+            <h3>Included zoom ratios</h3>
+            <p>Choose another configuration by replacing the value passed to <code>--name</code>.</p>
+            <ul class="configuration-list">
+              <li>gen_zoom_2x</li><li>gen_zoom_4x</li><li>gen_zoom_7x</li><li>gen_zoom_10x</li><li>gen_zoom_20x</li><li>gen_zoom_40x</li>
+            </ul>
+            <p class="workflow-try">Try to define your own configuration!</p>
+          </article>
+        </div>
+      </section>
+
+      <a class="workflow-back" href="../index.html#workflow">← Back to all workflows</a>
+    </div>
+  </main>
+
+  <footer><div class="shell"><img src="../assets/happylens-logo.svg?v=shared-logo-1" alt="HappyLens"><p>Open-source tools for lens design, optimization, and computational imaging.</p><span>Apache-2.0 · 2023–2026</span></div></footer>
+</body>
+</html>

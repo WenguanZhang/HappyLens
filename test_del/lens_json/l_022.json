@@ -1,0 +1,108 @@
+{
+    "OBJECT": {
+        "material": "VACUUM",
+        "distance": null
+    },
+    "Surface1": {
+        "type": "Standard",
+        "stop": false,
+        "radius": 4.27501485,
+        "material": "BASF51",
+        "roc": 7.576887617216734,
+        "thick": 1.411313175,
+        "conic": 0.0
+    },
+    "Surface2": {
+        "type": "Standard",
+        "stop": false,
+        "radius": 4.11734925,
+        "material": "VACUUM",
+        "roc": 25.745018953649264,
+        "thick": 0.1125,
+        "conic": 0.0
+    },
+    "Surface3": {
+        "type": "Standard",
+        "stop": false,
+        "radius": 3.5647362,
+        "material": "BAF3",
+        "roc": 5.826913224137685,
+        "thick": 1.523693025,
+        "conic": 0.0
+    },
+    "Surface4": {
+        "type": "Standard",
+        "stop": false,
+        "radius": 3.2691685500000003,
+        "material": "SF4",
+        "roc": 32.789270983224505,
+        "thick": 0.45,
+        "conic": 0.0
+    },
+    "Surface5": {
+        "type": "Standard",
+        "stop": false,
+        "radius": 2.5944777,
+        "material": "VACUUM",
+        "roc": 4.154695745170638,
+        "thick": 2.98285335,
+        "conic": 0.0
+    },
+    "Surface6": {
+        "type": "Standard",
+        "stop": true,
+        "radius": 1.7438589,
+        "material": "VACUUM",
+        "roc": null,
+        "thick": 2.3779845,
+        "conic": 0.0
+    },
+    "Surface7": {
+        "type": "Standard",
+        "stop": false,
+        "radius": 2.094702975,
+        "material": "SF10",
+        "roc": -5.640632113165622,
+        "thick": 0.45,
+        "conic": 0.0
+    },
+    "Surface8": {
+        "type": "Standard",
+        "stop": false,
+        "radius": 2.360756925,
+        "material": "BASF51",
+        "roc": 28.16114128075421,
+        "thick": 3.1780838250000003,
+        "conic": 0.0
+    },
+    "Surface9": {
+        "type": "Standard",
+        "stop": false,
+        "radius": 3.0691959750000004,
+        "material": "VACUUM",
+        "roc": -8.80533691073489,
+        "thick": 0.1125,
+        "conic": 0.0
+    },
+    "Surface10": {
+        "type": "Standard",
+        "stop": false,
+        "radius": 3.2313771,
+        "material": "BASF51",
+        "roc": 61.88275452688681,
+        "thick": 1.8085205250000003,
+        "conic": 0.0
+    },
+    "Surface11": {
+        "type": "Standard",
+        "stop": false,
+        "radius": 3.374999775,
+        "material": "VACUUM",
+        "roc": -19.106823513718,
+        "thick": 12.977320021313554,
+        "conic": 0.0
+    },
+    "IMAGE": {
+        "radius": 4.00586445
+    }
+}

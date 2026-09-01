@@ -1,0 +1,79 @@
+:root {
+  --happylens-blue: #237b8e;
+  --happylens-blue-dark: #165463;
+  --happylens-ink: #24333a;
+}
+
+.wy-side-nav-search,
+.wy-nav-top {
+  background: var(--happylens-blue);
+}
+
+.wy-side-nav-search > a,
+.wy-side-nav-search .wy-dropdown > a {
+  font-size: 1.55rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.wy-menu-vertical p.caption {
+  color: #78d0dc;
+}
+
+.rst-content h1,
+.rst-content h2,
+.rst-content h3 {
+  color: var(--happylens-ink);
+}
+
+.rst-content a,
+.wy-breadcrumbs a {
+  color: var(--happylens-blue);
+}
+
+.rst-content a:hover {
+  color: var(--happylens-blue-dark);
+}
+
+.rst-content code.literal {
+  color: #9b2c5b;
+}
+
+.rst-content .admonition.note .admonition-title {
+  background: var(--happylens-blue);
+}
+
+.rst-content .admonition.note {
+  background: #eaf7f9;
+}
+
+.wy-nav-content {
+  max-width: 1100px;
+}
+
+.rst-content table.docutils th,
+.rst-content table.docutils td {
+  vertical-align: top;
+  white-space: normal;
+}
+
+.rst-content table.docutils td {
+  line-height: 1.55;
+}
+
+.rst-content table.docutils th:first-child,
+.rst-content table.docutils td:first-child {
+  min-width: 8.5rem;
+}
+
+.rst-content table.docutils code.literal {
+  overflow-wrap: break-word;
+  word-break: normal;
+  white-space: normal;
+}
+
+@media screen and (min-width: 1100px) {
+  .wy-nav-content {
+    padding: 2.5rem 4rem;
+  }
+}

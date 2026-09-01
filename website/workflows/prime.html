@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Run the HappyLens prime lens structure-generation workflow and explore the source code.">
+  <meta name="theme-color" content="#237b8e">
+  <title>Prime Lens Workflow | HappyLens</title>
+  <link rel="icon" href="../assets/happylens-icon.svg?v=mark-only-1" type="image/svg+xml">
+  <link rel="stylesheet" href="../styles.css?v=workflow-video-24">
+</head>
+<body class="workflow-detail-page">
+  <header class="site-header">
+    <a class="brand" href="../index.html" aria-label="HappyLens home"><img src="../assets/happylens-logo.svg?v=shared-logo-1" alt="HappyLens"></a>
+    <nav aria-label="Workflow navigation">
+      <a href="../index.html">Home</a>
+      <a href="../index.html#capabilities">Features</a>
+      <a href="https://happylens.readthedocs.io/en/latest/gallery/prime_generation.html">Documentation</a>
+      <a class="nav-button" href="https://github.com/WenguanZhang/HappyLens/tree/main/test_prime">GitHub code</a>
+    </nav>
+    <details class="mobile-menu">
+      <summary aria-label="Open navigation menu"><span></span><span></span><span></span></summary>
+      <div class="mobile-menu-panel">
+        <a href="../index.html">Home</a>
+        <a href="../index.html#capabilities">Features</a>
+        <a href="https://happylens.readthedocs.io/en/latest/gallery/prime_generation.html">Documentation</a>
+        <a class="nav-button" href="https://github.com/WenguanZhang/HappyLens/tree/main/test_prime">GitHub code</a>
+      </div>
+    </details>
+  </header>
+
+  <main>
+    <section class="workflow-detail-hero">
+      <div class="shell">
+        <p class="eyebrow">HAPPYLENS WORKFLOW · PRIME LENS</p>
+        <h1>Prime lens structure generation</h1>
+        <p>Examples of prime-lens structure generation across different focal lengths and F-numbers.</p>
+      </div>
+    </section>
+
+    <div class="shell workflow-detail-main">
+      <section class="workflow-detail-section">
+        <div class="workflow-section-title">
+          <h2>Automatic generation process</h2>
+        </div>
+        <div class="workflow-demo-frame">
+          <video width="1000" height="480" autoplay muted loop playsinline preload="metadata" aria-label="Prime lens structure generation and optimization animation">
+            <source src="../assets/workflows/prime-lens-optimization.mp4" type="video/mp4">
+            <a href="../assets/workflows/prime-lens-optimization.gif">View the prime lens optimization animation</a>
+          </video>
+        </div>
+      </section>
+
+      <section class="workflow-detail-section">
+        <div class="workflow-section-title">
+          <h2>Run the example</h2>
+          <p>Run the entry script from the workflow directory. Each YAML file defines the optical targets, structure descriptor, search settings, merit operands, and refinement schedule.</p>
+        </div>
+        <div class="workflow-run-grid">
+          <article class="workflow-panel">
+            <span class="workflow-panel-label">COMMAND</span>
+            <h3>Generate a prime lens</h3>
+            <p>From the directory containing the cloned HappyLens repository:</p>
+            <pre class="workflow-command"><code>cd HappyLens/test_prime
+python test_gen_prime.py --name=gen_efl36_f3.5</code></pre>
+            <div class="workflow-actions">
+              <a class="button primary" href="https://github.com/WenguanZhang/HappyLens/tree/main/test_prime">View test_prime on GitHub</a>
+              <a class="button secondary" href="https://happylens.readthedocs.io/en/latest/gallery/prime_generation.html">Read the guide</a>
+            </div>
+          </article>
+
+          <article class="workflow-panel">
+            <span class="workflow-panel-label">CONFIGURATIONS</span>
+            <h3>Included examples</h3>
+            <p>Choose another configuration by replacing the value passed to <code>--name</code>.</p>
+            <ul class="configuration-list">
+              <li>gen_efl36_f3.5</li>
+              <li>gen_efl100_f2.8</li>
+              <li>gen_v33_f2.55</li>
+            </ul>
+            <p class="workflow-try">Try to define your own configuration!</p>
+          </article>
+        </div>
+      </section>
+
+      <a class="workflow-back" href="../index.html#workflow">← Back to all workflows</a>
+    </div>
+  </main>
+
+  <footer><div class="shell"><img src="../assets/happylens-logo.svg?v=shared-logo-1" alt="HappyLens"><p>Open-source tools for lens design, optimization, and computational imaging.</p><span>Apache-2.0 · 2023–2026</span></div></footer>
+</body>
+</html>

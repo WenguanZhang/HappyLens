@@ -1,0 +1,289 @@
+{
+    "OBJECT": {
+        "material": "VACUUM",
+        "distance": null
+    },
+    "Surface1": {
+        "type": "Standard",
+        "zoom_type": "FF",
+        "stop": false,
+        "radius": 4.5372423,
+        "material": "SF6",
+        "roc": 47.50593824228029,
+        "thick": 0.32000000000000006,
+        "conic": 0.0
+    },
+    "Surface2": {
+        "type": "Standard",
+        "zoom_type": "FF",
+        "stop": false,
+        "radius": 4.36935758,
+        "material": "N-SK5",
+        "roc": 12.026458208057727,
+        "thick": 1.34,
+        "conic": 0.0
+    },
+    "Surface3": {
+        "type": "Standard",
+        "zoom_type": "FF",
+        "stop": false,
+        "radius": 4.33973934,
+        "material": "VACUUM",
+        "roc": -29.027576197387518,
+        "thick": 0.04000000000000001,
+        "conic": 0.0
+    },
+    "Surface4": {
+        "type": "Standard",
+        "zoom_type": "FF",
+        "stop": false,
+        "radius": 3.8376552,
+        "material": "N-LAK21",
+        "roc": 7.636502481863306,
+        "thick": 0.82,
+        "conic": 0.0
+    },
+    "Surface5": {
+        "type": "Standard",
+        "zoom_type": "FM",
+        "stop": false,
+        "radius": 3.79679588,
+        "material": "VACUUM",
+        "roc": 21.978021978021978,
+        "thick": [4.631200000000000E+000, 2.517000000000000E+000, 1.688000000000000E-001],
+        "conic": 0.0
+    },
+    "Surface6": {
+        "type": "Standard",
+        "zoom_type": "MF",
+        "stop": false,
+        "radius": 2.69454334,
+        "material": "LAFN28",
+        "roc": 19.940179461615156,
+        "thick": 0.24,
+        "conic": 0.0
+    },
+    "Surface7": {
+        "type": "Standard",
+        "zoom_type": "MF",
+        "stop": false,
+        "radius": 2.23505396,
+        "material": "VACUUM",
+        "roc": 3.374957813027337,
+        "thick": 1.1199999999999999,
+        "conic": 0.0
+    },
+    "Surface8": {
+        "type": "Standard",
+        "zoom_type": "MF",
+        "stop": false,
+        "radius": 2.2288233600000003,
+        "material": "LAFN28",
+        "roc": -10.030090270812437,
+        "thick": 0.26,
+        "conic": 0.0
+    },
+    "Surface9": {
+        "type": "Standard",
+        "zoom_type": "MF",
+        "stop": false,
+        "radius": 2.20578452,
+        "material": "VACUUM",
+        "roc": 131.57894736842104,
+        "thick": 0.04000000000000001,
+        "conic": 0.0
+    },
+    "Surface10": {
+        "type": "Standard",
+        "zoom_type": "MF",
+        "stop": false,
+        "radius": 2.17318358,
+        "material": "F7",
+        "roc": 5.103342689461597,
+        "thick": 0.8400000000000001,
+        "conic": 0.0
+    },
+    "Surface11": {
+        "type": "Standard",
+        "zoom_type": "MF",
+        "stop": false,
+        "radius": 2.13921038,
+        "material": "VACUUM",
+        "roc": -11.968880909634949,
+        "thick": 0.16000000000000003,
+        "conic": 0.0
+    },
+    "Surface12": {
+        "type": "Standard",
+        "zoom_type": "MF",
+        "stop": false,
+        "radius": 2.1284528000000003,
+        "material": "LAFN28",
+        "roc": -7.00280112044818,
+        "thick": 0.22000000000000003,
+        "conic": 0.0
+    },
+    "Surface13": {
+        "type": "Standard",
+        "zoom_type": "MF",
+        "stop": false,
+        "radius": 2.02261326,
+        "material": "SF13",
+        "roc": 4.054327995134806,
+        "thick": 0.54,
+        "conic": 0.0
+    },
+    "Surface14": {
+        "type": "Standard",
+        "zoom_type": "MM",
+        "stop": false,
+        "radius": 2.01698052,
+        "material": "VACUUM",
+        "roc": 31.746031746031747,
+        "thick": [5.096000000000001E-001, 2.558200000000000E+000, 4.680800000000000E+000],
+        "conic": 0.0
+    },
+    "Surface15": {
+        "type": "Standard",
+        "zoom_type": "MF",
+        "stop": false,
+        "radius": 1.7067207400000002,
+        "material": "N-LAK14",
+        "roc": 10.443864229765014,
+        "thick": 0.38,
+        "conic": 0.0
+    },
+    "Surface16": {
+        "type": "Standard",
+        "zoom_type": "MF",
+        "stop": false,
+        "radius": 1.6845704260000003,
+        "material": "VACUUM",
+        "roc": null,
+        "thick": 0.04000000000000001,
+        "conic": 0.0
+    },
+    "Surface17": {
+        "type": "Standard",
+        "zoom_type": "MF",
+        "stop": false,
+        "radius": 1.6756073560000002,
+        "material": "LAK10",
+        "roc": 3.817522427944264,
+        "thick": 0.66,
+        "conic": 0.0
+    },
+    "Surface18": {
+        "type": "Standard",
+        "zoom_type": "MF",
+        "stop": false,
+        "radius": 1.618767596,
+        "material": "VACUUM",
+        "roc": 21.253985122210413,
+        "thick": 0.24,
+        "conic": 0.0
+    },
+    "Surface19": {
+        "type": "Standard",
+        "zoom_type": "MF",
+        "stop": false,
+        "radius": 1.6115904,
+        "material": "SF4",
+        "roc": -8.830022075055187,
+        "thick": 0.8,
+        "conic": 0.0
+    },
+    "Surface20": {
+        "type": "Standard",
+        "zoom_type": "MF",
+        "stop": false,
+        "radius": 1.55504033,
+        "material": "VACUUM",
+        "roc": 6.942034015966679,
+        "thick": 0.16000000000000003,
+        "conic": 0.0
+    },
+    "Surface21": {
+        "type": "Standard",
+        "zoom_type": "MF",
+        "stop": true,
+        "radius": [1.472699185282, 1.342182786153000E+000, 1.118964286224000E+000],
+        "material": "N-BK7",
+        "roc": 22.42152466367713,
+        "thick": 0.86,
+        "conic": 0.0
+    },
+    "Surface22": {
+        "type": "Standard",
+        "zoom_type": "MM",
+        "stop": false,
+        "radius": 1.643054522,
+        "material": "VACUUM",
+        "roc": -5.851375073142188,
+        "thick": [6.048000000000000E-001, 7.062000000000001E-001, 1.161600000000000E+000],
+        "conic": 0.0
+    },
+    "Surface23": {
+        "type": "Standard",
+        "zoom_type": "MF",
+        "stop": false,
+        "radius": 1.7215129300000003,
+        "material": "LF6HT",
+        "roc": 7.776049766718508,
+        "thick": 1.02,
+        "conic": 0.0
+    },
+    "Surface24": {
+        "type": "Standard",
+        "zoom_type": "MF",
+        "stop": false,
+        "radius": 1.7042197860000003,
+        "material": "VACUUM",
+        "roc": -4.686035613870665,
+        "thick": 0.4,
+        "conic": 0.0
+    },
+    "Surface25": {
+        "type": "Standard",
+        "zoom_type": "MF",
+        "stop": false,
+        "radius": 1.5954376520000002,
+        "material": "N-LASF40",
+        "roc": -3.677822728944465,
+        "thick": 0.24,
+        "conic": 0.0
+    },
+    "Surface26": {
+        "type": "Standard",
+        "zoom_type": "MM",
+        "stop": false,
+        "radius": 1.631054772,
+        "material": "VACUUM",
+        "roc": -13.670539986329459,
+        "thick": [1.969600000000000E+000, 1.868200000000000E+000, 1.412800000000000E+000],
+        "conic": 0.0
+    },
+    "Surface27": {
+        "type": "Standard",
+        "zoom_type": "MF",
+        "stop": false,
+        "radius": 1.6751857340000003,
+        "material": "N-LASF40",
+        "roc": -2.855511136493432,
+        "thick": 0.32000000000000006,
+        "conic": 0.0
+    },
+    "Surface28": {
+        "type": "Standard",
+        "zoom_type": "MM",
+        "stop": false,
+        "radius": 1.8089315400000001,
+        "material": "VACUUM",
+        "roc": -3.842459173871278,
+        "thick": [8.504094449707001E+000, 7.938057631190000E+000, 6.543023238714000E+000],
+        "conic": 0.0
+    },
+    "IMAGE": {
+        "radius": 3.3827495186601015
+    }
+}

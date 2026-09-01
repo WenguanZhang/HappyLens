@@ -1,0 +1,51 @@
+DEVICE: "cuda:0"
+SEED: 0
+
+MATERIAL_CATALOG:
+  GLASS: schott
+  PLASTIC: plastic
+
+WAVELENGTHS: [480.e-6, 550.e-6, 650.e-6]
+WAVEWEIGHTS: [1., 1., 1.]
+P_WAVE: 1
+WAVEWEIGHTS_R: [0.1, 0.1, 0.8]
+WAVEWEIGHTS_G: [0.1, 0.8, 0.1]
+WAVEWEIGHTS_B: [0.8, 0.1, 0.1]
+
+MAX_VIEW: 14.
+NORM_VIEWS: [0., 0.3, 0.5, 0.707, 0.85, 1.0]
+VIG: {
+  VUY: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+  VLY: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+  VUX: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+  VLX: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+}
+AZIMUTHS: [0.]
+
+SYS_NUM: 1
+CFG_NUM: 1
+FIX_RADIUS_SURF: []
+MAX_RADIUS: 4.34
+PRE_SAMP: null
+SAMP_RAYS: 9
+
+MERIT: {
+  # A
+  EFL: {target: 15., weight: 1.},
+  FNO: {target: 2.995, weight: 1.},
+  SPOT: {ref: 'rms', weight: 200.},
+  DISTOR: {target: 0.01, weight: 1.},
+  # B
+  BFL: {target: 5., weight: 1.},
+  TOTR: {target: 20.0, weight: 1.},
+  GLA_MIN_THICK: {min_thick: 0.1, td_ratio: 0.05, weight: 100.},
+  GLA_MAX_THICK: {max_thick: 3.0, td_ratio: 0.5, weight: 1.},
+  AIR_THICK: {target: 0.05, weight: 100.},
+  SURF_K: {target: 45., weight: 1.},
+  GLA_Z: {z_min: 0.1, weight: 10.},
+  # C
+  ANGLE: {target: 45., weight: 1.},
+  PUPIL: {ref_point_n: 8, weight: 0.01}
+}
+
+LR_OPT: 4.e-5

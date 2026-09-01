@@ -1,0 +1,81 @@
+{
+    "OBJECT": {
+        "material": "VACUUM",
+        "distance": null
+    },
+    "Surface1": {
+        "type": "Standard",
+        "stop": false,
+        "radius": 1.3226885567999997,
+        "material": "LAK10",
+        "roc": 2.2049396000072146,
+        "thick": 0.603257799051748,
+        "conic": 0.0
+    },
+    "Surface2": {
+        "type": "Standard",
+        "stop": false,
+        "radius": 1.1793389770291123,
+        "material": "VACUUM",
+        "roc": 6.86739650832585,
+        "thick": 0.26948141425992567,
+        "conic": 0.0
+    },
+    "Surface3": {
+        "type": "Standard",
+        "stop": false,
+        "radius": 1.1457275917593346,
+        "material": "SF11",
+        "roc": -11.794839021619257,
+        "thick": 0.2353540763502684,
+        "conic": 0.0
+    },
+    "Surface4": {
+        "type": "Standard",
+        "stop": false,
+        "radius": 1.012973929020558,
+        "material": "VACUUM",
+        "roc": 3.412340334988547,
+        "thick": 0.45117827922962206,
+        "conic": 0.0
+    },
+    "Surface5": {
+        "type": "Standard",
+        "stop": false,
+        "radius": 0.9229553052322442,
+        "material": "BASF2",
+        "roc": 4.457962435934993,
+        "thick": 0.7547691521600567,
+        "conic": 0.0
+    },
+    "Surface6": {
+        "type": "Standard",
+        "stop": true,
+        "radius": 0.7992820501751785,
+        "material": "VACUUM",
+        "roc": -5.882789815527435,
+        "thick": 1.3452839217168593,
+        "conic": 0.0
+    },
+    "Surface7": {
+        "type": "Standard",
+        "stop": false,
+        "radius": 1.1615195082856025,
+        "material": "LF7",
+        "roc": -1.5022713601125535,
+        "thick": 0.23224430866672932,
+        "conic": 0.0
+    },
+    "Surface8": {
+        "type": "Standard",
+        "stop": false,
+        "radius": 1.4166001436433109,
+        "material": "VACUUM",
+        "roc": -2.1007173253702223,
+        "thick": 3.1835305071136957,
+        "conic": 0.0
+    },
+    "IMAGE": {
+        "radius": 4.094573443098699
+    }
+}

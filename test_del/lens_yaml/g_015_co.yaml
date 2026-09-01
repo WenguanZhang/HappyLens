@@ -1,0 +1,64 @@
+DEVICE: "cuda:0"
+SEED: 0
+
+MATERIAL_CATALOG:
+  GLASS: [schott, ohara]
+  PLASTIC: plastic
+
+WAVELENGTHS: [480.e-6, 550.e-6, 650.e-6]
+WAVEWEIGHTS: [1., 1., 1.]
+P_WAVE: 1
+WAVEWEIGHTS_R: [0.1, 0.1, 0.8]
+WAVEWEIGHTS_G: [0.1, 0.8, 0.1]
+WAVEWEIGHTS_B: [0.8, 0.1, 0.1]
+
+MAX_VIEW: 5.1
+NORM_VIEWS: [0., 0.3, 0.5, 0.707, 0.85, 1.0]
+AZIMUTHS: [0.]
+
+SYS_NUM: 1
+CFG_NUM: 1
+PERTURB_SCALE: 0.
+FIX_RADIUS_SURF: [1]
+MAX_RADIUS: null
+PRE_SAMP: null
+SAMP_RAYS: 9
+
+MERIT: {
+  # A
+  EFL: {target: 45.6, weight: 10.},
+  FNO: {target: 2.0, weight: 10.},
+  SPOT: {ref: 'rms', weight: 50.},
+  DISTOR: {target: 0.01, weight: 10.},
+  # B
+  BFL: {target: 15., weight: 1.},
+  TOTR: {target: 48.2, weight: 5.},
+  GLA_MIN_THICK: {td_ratio: 0.1, weight: 100.},
+  GLA_MAX_THICK: {td_ratio: 0.5, weight: 1.},
+  AIR_THICK: {target: 0.05, weight: 100.},
+  SURF_K: {target: 60., weight: 0.1}
+}
+
+PSF_ANG_NUM: 8
+PSF_AZI_NUM: 2
+PSF_SAMPLING: 129
+PSF_SIZE: 45
+PSF_DELTA: 1.65
+NOISE_G: 1.e-5
+NOISE_P: 1.e-4
+RL_SAMPLING: 63
+RENDER_R: 4.086
+
+OPT_WEIGHT: 10.
+IMG_WEIGHT: 1.
+
+NET: 'DEEPSN'
+DATASET: 'fivek' # fivek / raise
+EPOCH: 30
+LR_NET: 1.e-3
+TRAIN_PATCH_SIZE: 256
+VALID_PATCH_SIZE: 256
+
+LR_OPT: 1.e-3
+OPTIC_UPDATE_FREQ: 10
+SAVE_FREQ: 100

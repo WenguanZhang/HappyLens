@@ -1,0 +1,108 @@
+{
+    "OBJECT": {
+        "material": "VACUUM",
+        "distance": null
+    },
+    "Surface1": {
+        "type": "Standard",
+        "stop": false,
+        "radius": 2.997355194192037,
+        "material": "LAF2",
+        "roc": 5.0530759943215555,
+        "thick": 0.9601200000000001,
+        "conic": 0.0
+    },
+    "Surface2": {
+        "type": "Standard",
+        "stop": false,
+        "radius": 2.8577394861555563,
+        "material": "VACUUM",
+        "roc": 13.041884003957769,
+        "thick": 0.06096000000000001,
+        "conic": 0.0
+    },
+    "Surface3": {
+        "type": "Standard",
+        "stop": false,
+        "radius": 2.438817888854846,
+        "material": "PK2",
+        "roc": 3.966463999064803,
+        "thick": 1.0007599980000002,
+        "conic": 0.0
+    },
+    "Surface4": {
+        "type": "Standard",
+        "stop": false,
+        "radius": 2.2205005483654174,
+        "material": "F4",
+        "roc": 18.636995972694265,
+        "thick": 0.27940000000000004,
+        "conic": 0.0
+    },
+    "Surface5": {
+        "type": "Standard",
+        "stop": false,
+        "radius": 1.6770013960181764,
+        "material": "VACUUM",
+        "roc": 2.496820000111458,
+        "thick": 1.7373599980000003,
+        "conic": 0.0
+    },
+    "Surface6": {
+        "type": "Standard",
+        "stop": true,
+        "radius": 1.0618104794433745,
+        "material": "VACUUM",
+        "roc": null,
+        "thick": 2.29108,
+        "conic": 0.0
+    },
+    "Surface7": {
+        "type": "Standard",
+        "stop": false,
+        "radius": 1.8245200126697076,
+        "material": "SF1",
+        "roc": -3.4203639993438584,
+        "thick": 0.48768000000000006,
+        "conic": 0.0
+    },
+    "Surface8": {
+        "type": "Standard",
+        "stop": false,
+        "radius": 2.2548727444456094,
+        "material": "LAKN7",
+        "roc": -14.546072039436321,
+        "thick": 1.3004799980000001,
+        "conic": 0.0
+    },
+    "Surface9": {
+        "type": "Standard",
+        "stop": false,
+        "radius": 2.567521209999238,
+        "material": "VACUUM",
+        "roc": -4.152900002152656,
+        "thick": 0.030480000000000004,
+        "conic": 0.0
+    },
+    "Surface10": {
+        "type": "Standard",
+        "stop": false,
+        "radius": 2.913122391642117,
+        "material": "LAF2",
+        "roc": -164.5279919781416,
+        "thick": 0.86868,
+        "conic": 0.0
+    },
+    "Surface11": {
+        "type": "Standard",
+        "stop": false,
+        "radius": 2.9923151979972538,
+        "material": "VACUUM",
+        "roc": -8.686292014470684,
+        "thick": 8.652727124012813,
+        "conic": 0.0
+    },
+    "IMAGE": {
+        "radius": 4.012284361173759
+    }
+}

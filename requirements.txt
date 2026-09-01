@@ -1,0 +1,26 @@
+# HappyLens runtime and example dependencies
+# Python 3.12 is required.
+# For GPU acceleration, install the PyTorch build matching your CUDA version:
+# https://pytorch.org/get-started/locally/
+
+# Differentiable optics and array computing
+torch
+torchvision
+numpy
+scipy
+einops
+
+# Configuration, progress reporting, and visualization
+PyYAML
+tqdm
+matplotlib
+seaborn
+
+# Image and dataset I/O
+Pillow
+h5py
+rawpy
+
+# Metrics and experiment logging used by the example applications
+torchmetrics[image]
+tensorboard

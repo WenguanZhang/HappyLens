@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 280" role="img" aria-labelledby="title desc">
+  <title id="title">HappyLens logo</title>
+  <desc id="desc">Light rays pass through an optical lens and become the eyes of a smiling face beside the HappyLens wordmark.</desc>
+
+  <defs>
+    <linearGradient id="lens" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#237B8E"/>
+      <stop offset="1" stop-color="#165463"/>
+    </linearGradient>
+  </defs>
+
+  <path d="M30 80H120" fill="none" stroke="#55D6D0" stroke-width="10" stroke-linecap="round"/>
+  <path d="M30 200H120" fill="none" stroke="#F4B942" stroke-width="10" stroke-linecap="round"/>
+  <path d="M150 34C199 89 199 191 150 246C101 191 101 89 150 34Z" fill="none" stroke="url(#lens)" stroke-width="13" stroke-linejoin="round"/>
+  <path d="M180 80L246 128" fill="none" stroke="#55D6D0" stroke-width="8" stroke-linecap="round"/>
+  <path d="M180 200L304 128" fill="none" stroke="#F4B942" stroke-width="8" stroke-linecap="round"/>
+  <circle cx="246" cy="128" r="12" fill="#55D6D0"/>
+  <circle cx="304" cy="128" r="12" fill="#F4B942"/>
+  <path d="M220 167C238 222 312 222 330 167" fill="none" stroke="#237B8E" stroke-width="16" stroke-linecap="round"/>
+  <text x="372" y="171" fill="#F4B942" font-family="Avenir Next, Avenir, Montserrat, Inter, Helvetica Neue, Arial, sans-serif" font-size="91" font-weight="700" letter-spacing="-3">Happy<tspan fill="url(#lens)">Lens</tspan></text>
+</svg>

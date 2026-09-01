@@ -1,0 +1,56 @@
+DEVICE: "cuda:0"
+SEED: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+
+MATERIAL_CATALOG:
+  GLASS: schott
+  PLASTIC: plastic
+WAVELENGTHS: [470.e-6, 510.e-6, 555.e-6, 610.e-6, 650.e-6]
+WAVEWEIGHTS: [91, 503, 1000, 503, 107]
+P_WAVE: 2
+
+MAX_VIEW: 8.5
+NORM_VIEWS: [0., 0.3, 0.5, 0.707, 0.85, 1.0]
+AZIMUTHS: [0.]
+
+DELANO_SYS: 5000
+LR_DELANO: 1.e-3
+MAT: 'H-K9L'
+
+SYS_NUM: 200
+CFG_NUM: 1
+SAMP_METHOD: 'ring'
+SAMP_RAYS: 5
+
+MERIT: {
+  # A
+  EFL: {target: 135.0, weight: 1.},
+  FNO: {target: 1.8, weight: 1.},
+  SPOT: {ref: 'chief', k: 2., weight: 2.},
+  DISTOR: {target: 0.015, weight: 5.},
+  # B
+  BFL: {target: 50., weight: 1.},
+  TOTR: {target: 70., weight: 1.},
+  SURF_K: {target: 60., weight: 1.},
+  SURF_GAP: {
+    0: {s_pre: 1, s_aft: 2, target: 5., mode: 'gt', weight: 5.},
+    1: {s_pre: 2, s_aft: 3, target: 35., mode: 'lt', weight: 5.},
+    2: {s_pre: 2, s_aft: 4, target: 1., mode: 'gt', weight: 5.},
+    3: {s_pre: 3, s_aft: 5, target: 20., mode: 'eq', weight: 5.},
+  }
+}
+
+SHADE: {
+  iters: 500,
+  F: 0.5,
+  CR: 0.5,
+  c: 10,
+  p: 0.2
+}
+
+EPOCH: [1000, 1000, 1000, 1000, 1000, 1000]
+ADD_PARAM: [['conic'], ['qi0'], ['qi1'], ['qi2'], ['qi3'], null]
+LR_OPT: 1.e-3
+DROPOUT: 0.2
+
+OPTIC_UPDATE_FREQ: 10
+SAVE_FREQ: 100
