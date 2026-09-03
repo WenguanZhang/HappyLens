@@ -224,11 +224,22 @@ If HappyLens is useful in your research, please cite the paper or papers closely
 }
 ```
 
-<!-- ```bibtex
+```bibtex
 @article{zhang2026catadioptric,
-
+    author = {Wenguan Zhang and Tuo Sun and Xiangang Gao and Jiajian He and Jiahui Xu and Qirun Zhang and Tingting Jiang and Huajun Feng and Yueting Chen and Shiqi Chen and Qi Li},
+    journal = {Opt. Express},
+    keywords = {Computational imaging; Diffractive optical elements; Imaging systems; Lens design; Optical systems; Systems design},
+    number = {18},
+    pages = {34256--34270},
+    publisher = {Optica Publishing Group},
+    title = {Differentiable design and digital imaging compensation for micro catadioptric systems},
+    volume = {34},
+    month = {Sep},
+    year = {2026},
+    url = {https://opg.optica.org/oe/abstract.cfm?URI=oe-34-18-34256},
+    doi = {10.1364/OE.607045},
 }
-``` -->
+```
 
 ```bibtex
 @article{zhang2024automatic,
