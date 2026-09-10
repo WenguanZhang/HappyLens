@@ -4,6 +4,7 @@ torch.set_default_dtype(torch.float64)
 torch.set_printoptions(precision=10)
 # torch.autograd.set_detect_anomaly(True)
 
+import os
 import sys as system
 system.path.append('..')
 import lens
@@ -69,11 +70,11 @@ mtf = analysis.mtf(sys_id, cfg_id, pupil_samp, image_size, delta, norm_view, azi
 psf = analysis.psf(sys_id, cfg_id, pupil_samp, image_size, delta, norm_view, azimuth)
 mtf = analysis.mtf(sys_id, cfg_id, pupil_samp, image_size, delta, norm_view, azimuth, freq_max=500)
 # %%
-mtf = analysis.mtf(sys_id, cfg_id, pupil_samp, image_size, delta, norm_views, azimuth, 480e-6, 500)
+mtf = analysis.mtf(sys_id, cfg_id, pupil_samp, image_size, delta, norm_views, azimuth, wavelength=480e-6, freq_max=500)
 # %%
-mtf = analysis.mtf(sys_id, cfg_id, pupil_samp, image_size, delta, norm_views, azimuth, 550e-6, 500)
+mtf = analysis.mtf(sys_id, cfg_id, pupil_samp, image_size, delta, norm_views, azimuth, wavelength=550e-6, freq_max=500)
 # %%
-mtf = analysis.mtf(sys_id, cfg_id, pupil_samp, image_size, delta, norm_views, azimuth, 650e-6, 500)
+mtf = analysis.mtf(sys_id, cfg_id, pupil_samp, image_size, delta, norm_views, azimuth, wavelength=650e-6, freq_max=500)
 # %%
 mtf = analysis.mtf(sys_id, cfg_id, pupil_samp, image_size, delta, norm_views, azimuth, freq_max=500)
 # %%
@@ -115,6 +116,7 @@ psfs = merit.psf_rs(pupil_samp, image_samp, image_delta, angle, azimuth, auto=Fa
 psfs = merit.psf_to_rgb(psfs, waveweights_rgb, True)
 # %%
 optimizer.zero_grad()
+os.makedirs('../results', exist_ok=True)
 loss_opt = merit.forward_loss(args.MERIT, path='../results')
 loss_opt[sys.valid].sum().backward()
 optimizer.step()

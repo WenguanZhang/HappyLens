@@ -28,6 +28,7 @@ class System(nn.Module):
         self.samp_method = samp_method
         self.surf_samp = 512
         self.vig_chief = False
+        self.circle_pupil_mask = False
         self.vig = vig
         
         # for large pupil aberration systems
@@ -74,7 +75,25 @@ class System(nn.Module):
         
         sys = nn.ModuleList([])
         sys.append(OBJECT(material=lens_dict['OBJECT']['material'], distance=lens_dict['OBJECT']['distance'] if isinstance(lens_dict['OBJECT']['distance'], list) else [lens_dict['OBJECT']['distance']] * self.cfg_num))
+        pre_surf = sys[0]
         for i, item in enumerate(list(lens_dict)[1:-1]):
+            if lens_dict[item]['type'] == 'Coordinate':
+                surface = lens_dict[item]
+                thick = surface['thick'] if isinstance(surface['thick'], list) else [surface['thick']] * self.cfg_num
+                decenter = torch.tensor(surface['decenter'])[None, None, :].repeat(self.sys_num, self.cfg_num, 1)
+                tilt = torch.tensor(surface['tilt'])[None, None, :].repeat(self.sys_num, self.cfg_num, 1)
+                sys.append(Coordinate(
+                    pre_surf=pre_surf,
+                    thick=torch.tensor(thick)[None, :].repeat(self.sys_num, 1),
+                    decenter=decenter,
+                    tilt=tilt,
+                    flag=surface['flag'],
+                ))
+                zoom_type.append(surface.get('zoom_type'))
+                if surface['stop']:
+                    stop_id = i + 1
+                continue
+
             if lens_dict[item]['material'] in glass_catalog:
                 mat_cata = 'G'
             elif lens_dict[item]['material'] in plastic_catalog:
@@ -115,6 +134,9 @@ class System(nn.Module):
                     pi_list=[[x] * self.sys_num for x in lens_dict[item]['pi_list']],
                     rnorm=[lens_dict[item]['rnorm']] * self.sys_num,
                ))
+
+            if lens_dict[item]['material'] != 'MIRROR':
+                pre_surf = sys[-1]
                 
             if 'zoom_type' in lens_dict[item]:
                 zoom_type.append(lens_dict[item]['zoom_type'])
@@ -750,7 +772,6 @@ class System(nn.Module):
         new_sys.append(IMAGE(radius=((self.max_view.deg2rad().tan() * merit['EFL']['target']).repeat(self.sys_num, self.cfg_num)).tolist()))
         return new_sys, stop_id
     
-    
     @torch.no_grad()
     def simulated_annealing(self, sys, stop_id, sys_num, merit, scale, T=100., T_min=1., step=0.001, alpha=0.95, iter=100, ptresh=0.5):
         k = 1
@@ -961,7 +982,6 @@ class System(nn.Module):
         loss = (1 + loss_fst) * (1 + loss_sei) * (1 + loss_roc) * (1 + loss_gap)
         return loss, R
     
-    
     @torch.no_grad()
     def update(self):
         surfs = self.extract_surfs()
@@ -979,7 +999,6 @@ class System(nn.Module):
         self.EFFL = -1 / abcd[:, :, 1, 0]
         self.FNO = self.EFFL / self.ENPD
         self.TOTR = reduce((lambda x, y: x + y), [elem.thick for i, elem in enumerate(surfs[1:-1])])
-        
         
     ######################################### Ray Tracing #########################################
     def propagate(self, ray:Ray, radius_flag=True, record=False):
@@ -1027,7 +1046,6 @@ class System(nn.Module):
         else:
             return ray
         
-        
     def reverse_propagate(self, ray:Ray):
         """
         not for tolerance system
@@ -1041,7 +1059,6 @@ class System(nn.Module):
         ray = surfs[1].intersect(ray, mode='reverse')
         ray = surfs[1].refract(ray, surfs[0], mode='reverse')
         return ray
-
 
     @torch.no_grad()
     def pre_samp_ray(self, views, wavelengths, pre_samp):
@@ -1180,7 +1197,6 @@ class System(nn.Module):
         
         return sample_range
     
-    
     @torch.no_grad()
     def sample_ray_2d(self, sampling, norm_view=None, azimuth=None, wavelength=None, pre_samp=None, samp_method=None, vig=None):
         # parallel waves, sys, cfg, views, azimuths, rays_num
@@ -1214,6 +1230,8 @@ class System(nn.Module):
         
         samp_method = self.samp_method if samp_method is None else samp_method
         xy = pupil_distribution(sampling, sampling, samp_method) # [M, 2], [-1, 1]
+        if self.circle_pupil_mask: pupil_mask = xy.square().sum(dim=-1) <= 1 + 1e-12
+        
         if vig != None:
             vig_up = torch.tensor(vig['VUY'])
             vig_up = vig_up[None, :].repeat(self.cfg_num, 1) if vig_up.dim() == 1 else vig_up # [cfg, ang]
@@ -1284,7 +1302,9 @@ class System(nn.Module):
                 o_pupil = torch.stack([o_xy[..., 0], o_xy[..., 1], self.ENPP[:, :, None, None, None].repeat(1, 1, views.shape[-1], len(azimuths), xy.shape[0])], dim=-1) # [sys, cfg, ang, azi, M, 3]
                 d = normalize(o_pupil - o) # [sys, cfg, ang, azi, M, 3]
         
-        return Ray(o, d, wavelengths)
+        ray = Ray(o, d, wavelengths)
+        if self.circle_pupil_mask: ray.valid &= pupil_mask # circle pupil mask
+        return ray
 
 
     ######################################### Basic Functions #########################################
@@ -1791,8 +1811,6 @@ class System(nn.Module):
             else:
                 logger.info(msg)
     
-    
-    
     ######################################### Others #########################################
     def tilt_decenter_elements(self, start_surf, end_surf, decenter, tilt):
         """
@@ -1832,6 +1850,7 @@ class System(nn.Module):
             self.stop_id += 1 if end_surf+2 <= self.stop_id else 0
             self.stop_id += 1 if end_surf+3 <= self.stop_id else 0
             
+    
     def del_surfs(self, del_id):
         """
         Only for systems with no tolerance.
@@ -1913,6 +1932,7 @@ class System(nn.Module):
         self.system[-3].radius = radius_sf.amax(dim=-1, keepdim=True).repeat(1, self.cfg_num)
         self.system[-2].radius = radius_sb.amax(dim=-1, keepdim=True).repeat(1, self.cfg_num)
         self.update()
+    
             
     def save_json(self, sys_id, save_path):
         json_file = open(save_path, mode='w')

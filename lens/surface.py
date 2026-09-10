@@ -62,7 +62,8 @@ class Sphere(nn.Module):
         self.thick_tol = torch.zeros_like(self.thick)
         self.solver = Solver(20, 1e-11, 1e-9, 'newton', 512)
         
-        self.aperture = aperture # float / circ / obsc
+        self.aperture = aperture # float / circ / obsc / square
+        # For square apertures, min_r and max_r are the x and y half-widths.
         self.min_r = torch.tensor(min_r) if min_r is not None else torch.zeros(self.radius.shape[0]) # [sys]
         self.max_r = torch.tensor(max_r) if max_r is not None else torch.zeros(self.radius.shape[0]) # [sys]
     
@@ -167,6 +168,11 @@ class Sphere(nn.Module):
         normal = self.inter_normal(ray.o[..., 0], ray.o[..., 1], mode=mode) * torch.sign(ray.d[..., 2])[..., None]
         
         cos_theta1 = - torch.einsum('...k, ...k', normal, l)
+
+        if 'MIRROR' in self.material['name']:
+            ray.d = normalize(l + 2 * cos_theta1[..., None] * normal)
+            return ray
+
         cos_theta2_2 = 1 - mu ** 2 * (1 - cos_theta1 ** 2)
         
         # Judge invalid rays: total reflection.
@@ -175,10 +181,7 @@ class Sphere(nn.Module):
         #! Avoid cos_theta2_2 < 0
         cos_theta2 = torch.sqrt(cos_theta2_2.clip(eps))
         
-        if 'MIRROR' in self.material['name']:
-            vr = l + 2 * cos_theta1[..., None] * normal
-        else:
-            vr = mu.unsqueeze(-1) * l + (mu * cos_theta1 - cos_theta2)[..., None] * normal
+        vr = mu.unsqueeze(-1) * l + (mu * cos_theta1 - cos_theta2)[..., None] * normal
         ray.d = normalize(vr)
         return ray
     
@@ -198,6 +201,10 @@ class Sphere(nn.Module):
                 valid = torch.ones_like(o[..., 0]).bool()
                 r2 = o[..., 1:, 0] ** 2 + o[..., 1:, 1] ** 2
                 valid[..., 1:] = (r2 < self.min_r[None, :, None, None, None, None] ** 2) | ((r2 > self.max_r[None, :, None, None, None, None] ** 2) & (r2 <= self.radius[None, :, :, None, None, None] ** 2))
+            case 'square':
+                # min_r: x half-width; max_r: y half-width.
+                valid = ((o[..., 0].abs() <= self.min_r[None, :, None, None, None, None]) &
+                         (o[..., 1].abs() <= self.max_r[None, :, None, None, None, None]))
             case 'float':
                 valid = (o[..., 0] ** 2 + o[..., 1] ** 2) <= self.radius[None, :, :, None, None, None] ** 2
         return valid

@@ -36,10 +36,12 @@ class Solver(object):
         ox, oy, oz = (ray.o[..., i] for i in range(3))
         dx, dy, dz = (ray.d[..., i] for i in range(3))
         
+        # Keep position gradients and copy the mask before in-place updates.
+        valid = ray.valid.clone()
+        ox = torch.where(valid, ox, 0.)
+        oy = torch.where(valid, oy, 0.)
+
         with torch.no_grad():
-            ox = torch.where(ray.valid, ox, 0.)
-            oy = torch.where(ray.valid, oy, 0.)
-            
             it = 0
             res = 1e8 * torch.ones_like(oz)
             match mode:
@@ -76,11 +78,18 @@ class Solver(object):
                         res = -surf.surface(ox + t * dx, oy + t * dy) - (t * dz)                
             t = torch.where(torch.abs(res) < self.TOLERANCE_LOOSE, t, 0.)
         
+        # One Newton step restores the implicit intersection gradient.
+        s_dx, s_dy, s_dz = surf.surface_d(ox + t * dx, oy + t * dy)
+        if mode == 'reverse':
+            s_dx = -s_dx
+            s_dy = -s_dy
+        df = s_dx * dx + s_dy * dy + s_dz * dz
         match mode:
             case 'forward':
-                t = surf.surface(ox + t * dx, oy + t * dy) / dz
+                res = surf.surface(ox + t * dx, oy + t * dy) - (t * dz)
             case 'reverse':
-                t = -surf.surface(ox + t * dx, oy + t * dy) / dz
+                res = -surf.surface(ox + t * dx, oy + t * dy) - (t * dz)
+        t = t - (res / df)
         # print(it)
         ray.o = ray.o + t.unsqueeze(-1) * ray.d
         # Judge invalid rays: no intersection or does not converge.
@@ -99,10 +108,12 @@ class Solver(object):
         ox, oy, oz = (ray.o[..., i] for i in range(3))
         dx, dy, dz = (ray.d[..., i] for i in range(3))
         
+        # Keep position gradients and copy the mask before in-place updates.
+        valid = ray.valid.clone()
+        ox = torch.where(valid, ox, 0.)
+        oy = torch.where(valid, oy, 0.)
+
         with torch.no_grad():
-            ox = torch.where(ray.valid, ox, 0.)
-            oy = torch.where(ray.valid, oy, 0.)
-            
             it = 0
             res = 1e8 * torch.ones_like(oz)
             match mode:
@@ -166,10 +177,12 @@ class Solver(object):
         ox, oy, oz = (ray.o[..., i] for i in range(3))
         dx, dy, dz = (ray.d[..., i] for i in range(3))
         
+        # Keep position gradients and copy the mask before in-place updates.
+        valid = ray.valid.clone()
+        ox = torch.where(valid, ox, 0.)
+        oy = torch.where(valid, oy, 0.)
+
         with torch.no_grad():
-            ox = torch.where(ray.valid, ox, 0.)
-            oy = torch.where(ray.valid, oy, 0.)
-            
             it = 0
             res = 1e8 * torch.ones_like(oz)
             match mode:

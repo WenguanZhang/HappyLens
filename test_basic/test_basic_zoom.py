@@ -3,6 +3,7 @@ import torch
 torch.set_default_dtype(torch.float64)
 torch.set_printoptions(precision=10)
 
+import os
 import sys as system
 system.path.append('..')
 import lens
@@ -75,6 +76,7 @@ psfs = merit.psf_rs(pupil_samp, image_samp, image_delta, norm_view, azimuth, aut
 psfs = merit.psf_to_rgb(psfs, waveweights_rgb, True)
 # %%
 optimizer.zero_grad()
+os.makedirs('../results', exist_ok=True)
 loss_opt = merit.forward_loss(args.MERIT, path='../results')
 loss_opt[sys.valid].sum().backward()
 optimizer.step()

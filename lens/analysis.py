@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 from functools import reduce
 
 from .system import System
+from .surface import Coordinate, Dummy
 from .utils import Ray, normalize, RayleighSommerfeldPsfOp, CoherentPsfOp, eps
 
 class Analysis(nn.Module):
@@ -125,120 +126,228 @@ class Analysis(nn.Module):
             
     @torch.no_grad()
     def plot_setup_with_trace(self, sys_id=0, cfg_id=0, M=3):
-        """
-        For no tolerance system.
-        Draw the 2D layout of the system with rays.
-        """
-        fig, ax = plt.subplots(figsize=(8, 6))
-        
-        # draw surfaces
-        plus = torch.tensor(0.)
-        rs, zs = [], []
-        for i, s in enumerate(self.sys.system[1:-1]):
-            if s.aperture == 'circ':
-                r1 = torch.linspace(-s.max_r[sys_id], -s.min_r[sys_id], self.sys.surf_samp // 2)[None, None, None, None, None, :] * (1 + self.sys.clear_margin)
-                r2 = torch.linspace(s.min_r[sys_id], s.max_r[sys_id], self.sys.surf_samp // 2)[None, None, None, None, None, :] * (1 + self.sys.clear_margin)
-                z1 = s.surface(r1, torch.zeros_like(r1))[0, sys_id, 0, 0, 0] + plus
-                z2 = s.surface(r2, torch.zeros_like(r2))[0, sys_id, 0, 0, 0] + plus
-                r1 = r1[0, 0, 0, 0, 0]
-                r2 = r2[0, 0, 0, 0, 0]
-                r, z = None, None
-            else:
-                r = torch.linspace(-s.radius[sys_id, cfg_id], s.radius[sys_id, cfg_id], self.sys.surf_samp)[None, None, None, None, None, :] * (1 + self.sys.clear_margin)
-                z = s.surface(r, torch.zeros_like(r))[0, sys_id, 0, 0, 0] + plus
-                r = r[0, 0, 0, 0, 0]
-            
-            if i + 1 == self.sys.stop_id and ('VACUUM' in s.material['name']) and ('VACUUM' in self.sys.system[i].material['name']):
-                r_s = s.radius[sys_id, cfg_id].cpu()
-                w = r_s / 10
-                ax.plot([plus.cpu()-w, plus.cpu()+w], [r_s, r_s], color='r')
-                ax.plot([plus.cpu()-w, plus.cpu()+w], [-r_s, -r_s], color='r')
-                ax.plot([plus.cpu(), plus.cpu()], [r_s, r_s+w], color='r')
-                ax.plot([plus.cpu(), plus.cpu()], [-r_s, -r_s-w], color='r')
-            else:
-                if s.aperture == 'circ':
-                    ax.plot(z1.cpu(), r1.cpu(), 'k')
-                    ax.plot(z2.cpu(), r2.cpu(), 'k')
-                else:
-                    ax.plot(z.cpu(), r.cpu(), 'k')
-            
-            if i != len(self.sys.system)-2:
-                plus += s.thick[sys_id, cfg_id]
-            rs.append(r)
-            zs.append(z)
-        
-        # extract the elements
-        elems = []
-        start = 1
-        while start < len(self.sys.system)-2:
-            if 'VACUUM' not in self.sys.system[start].material['name'] and 'MIRROR' not in self.sys.system[start].material['name']:
-                for end in range(start, len(self.sys.system)-2):
-                    if 'VACUUM' in self.sys.system[end+1].material['name'] or 'MIRROR' in self.sys.system[end+1].material['name']:
-                        elems.append([start, end+1])
-                        start = end + 1
-                        break
-                else:
-                    break
-            else:
-                start += 1
+        """Plot a non-tolerance system and rays in the global YZ view.
 
-        # fix edges
-        for i, elem in enumerate(elems):
-            rmax = self.sys.system[elem[0]].radius[sys_id, cfg_id] * (1 + self.sys.clear_margin)
-            for j in range(elem[0], elem[1]+1):
-                if rmax < self.sys.system[j].radius[sys_id, cfg_id] * (1 + self.sys.clear_margin):
-                    rmax = self.sys.system[j].radius[sys_id, cfg_id] * (1 + self.sys.clear_margin)
-            for j in range(elem[0]-1, elem[1]):
-                rs[j] = torch.cat([-rmax[..., None], rs[j], rmax[..., None]])
-                zs[j] = torch.cat([zs[j][0][..., None], zs[j], zs[j][-1][..., None]])
-        
-        # draw edges
-        for i, elem in enumerate(elems):
-            # draw vertical lines
-            for j in range(elem[0]-1, elem[1]):
-                ax.plot([zs[j][0].cpu(), zs[j][1].cpu()],
-                        [rs[j][0].cpu(), rs[j][1].cpu()], "k")
-                ax.plot([zs[j][-1].cpu(), zs[j][-2].cpu()],
-                        [rs[j][-1].cpu(), rs[j][-2].cpu()], "k")
-            # draw horizontal lines
-            for j in range(elem[0]-1, elem[1]-1):
-                ax.plot([zs[j][0].cpu(), zs[j+1][0].cpu()],
-                        [rs[j][0].cpu(), rs[j+1][0].cpu()], "k")
-                ax.plot([zs[j][-1].cpu(), zs[j+1][-1].cpu()],
-                        [rs[j][-1].cpu(), rs[j+1][-1].cpu()], "k")
-        
-        r = torch.linspace(-self.sys.system[-1].radius[sys_id, cfg_id], self.sys.system[-1].radius[sys_id, cfg_id], self.sys.surf_samp)
-        z = torch.ones_like(r) * plus
-        ax.plot(z.cpu(), r.cpu(), 'k')
+        Local YZ surface sections and rays are transformed before plotting;
+        this is a sectional layout, not a full 3D silhouette renderer.
+        """
+        dtype = self.sys.wavelengths.dtype
+        device = self.sys.wavelengths.device
+        margin = 1 + self.sys.clear_margin
+
+        def apply_coordinate(origin, basis, coordinate):
+            angles = coordinate.tilt[sys_id, cfg_id]
+            zero = angles.new_tensor(0.)
+            one = angles.new_tensor(1.)
+            cx, cy, cz = torch.cos(angles)
+            sx, sy, sz = torch.sin(angles)
+            rx = torch.stack((one, zero, zero,
+                              zero, cx, -sx,
+                              zero, sx, cx)).reshape(3, 3)
+            ry = torch.stack((cy, zero, sy,
+                              zero, one, zero,
+                              -sy, zero, cy)).reshape(3, 3)
+            rz = torch.stack((cz, -sz, zero,
+                              sz, cz, zero,
+                              zero, zero, one)).reshape(3, 3)
+            shift = torch.cat((coordinate.decenter[sys_id, cfg_id], angles.new_zeros(1)))
+
+            # Invert the transform order used by Coordinate.propagate.
+            if coordinate.flag == 0:
+                old_to_new = rz @ ry @ rx
+                offset = old_to_new @ shift
+            else:
+                old_to_new = rx @ ry @ rz
+                offset = shift
+
+            new_to_old = old_to_new.transpose(0, 1)
+            return (origin - basis @ new_to_old @ offset, basis @ new_to_old)
+
+        def to_global(points, frame):
+            origin, basis = frame
+            return points @ basis.transpose(0, 1) + origin
+
+        # Frames match System.propagate records, including auxiliary surfaces.
+        origin = torch.zeros(3, dtype=dtype, device=device)
+        basis = torch.eye(3, dtype=dtype, device=device)
+        record_frames = [(origin, basis)]
+        surface_frames = {}
+
+        for surface_id, surface in enumerate(self.sys.system[1:-1], start=1):
+            if isinstance(surface, Coordinate):
+                origin, basis = apply_coordinate(origin, basis, surface)
+            record_frames.append((origin, basis))
+            if not isinstance(surface, Coordinate):
+                surface_frames[surface_id] = record_frames[-1]
+            if hasattr(surface, 'thickness'):
+                origin = origin + basis[:, 2] * surface.thickness()[sys_id, cfg_id]
+
+        record_frames.append((origin, basis))
+
+        fig, ax = plt.subplots(figsize=(8, 6))
+
+        def draw(points, color='k'):
+            points = points.detach().cpu()
+            ax.plot(points[..., 2], points[..., 1], color=color)
+
+        def material_name(surface):
+            material = getattr(surface, 'material', None)
+            if material is None:
+                return None
+            names = material['name']
+            return names if isinstance(names, str) else names[sys_id]
+
+        def outer_radius(surface):
+            if surface.aperture in ('circ', 'square'):
+                return surface.max_r[sys_id]
+            return surface.radius[sys_id, cfg_id]
+
+        # Share barrel radii within coaxial lenses, not across folds or prisms.
+        rim_radii = {}
+        lens_group = []
+
+        def finish_lens_group():
+            if len(lens_group) > 1:
+                radius = torch.stack([
+                    torch.maximum(outer_radius(self.sys.system[i]), self.sys.system[i].radius[sys_id, cfg_id])
+                    for i in lens_group
+                ]).max()
+                for i in lens_group:
+                    rim_radii[i] = radius * margin
+            lens_group.clear()
+
+        for surface_id, frame in surface_frames.items():
+            surface = self.sys.system[surface_id]
+            name = material_name(surface)
+            if (not hasattr(surface, 'radius') or name in (None, 'MIRROR') or surface.aperture == 'square'):
+                finish_lens_group()
+                continue
+            if lens_group:
+                first_origin, first_basis = surface_frames[lens_group[0]]
+                offset = (frame[0] - first_origin) @ first_basis
+                if (not torch.allclose(frame[1], first_basis, rtol=0., atol=1e-9)
+                        or not torch.allclose(offset[:2], torch.zeros_like(offset[:2]), rtol=0., atol=1e-9)):
+                    finish_lens_group()
+            lens_group.append(surface_id)
+            if name == 'VACUUM':
+                finish_lens_group()
+        finish_lens_group()
+
+        def surface_segments(surface, rim_radius=None):
+            aperture = getattr(surface, 'aperture', 'float')
+            if aperture == 'circ':
+                limits = ((-surface.max_r[sys_id], -surface.min_r[sys_id]),
+                          (surface.min_r[sys_id], surface.max_r[sys_id]))
+            else:
+                radius = outer_radius(surface)
+                limits = ((-radius, radius),)
+
+            segments = []
+            for lower, upper in limits:
+                radial = torch.linspace(lower, upper, self.sys.surf_samp, dtype=dtype, device=device) * margin
+                x, y = torch.zeros_like(radial), radial
+                shaped_x = x[None, None, None, None, None, :].expand(1, 1, self.sys.cfg_num, 1, 1, -1)
+                shaped_y = y[None, None, None, None, None, :].expand_as(shaped_x)
+                sag = surface.surface(shaped_x, shaped_y)[0, sys_id, cfg_id, 0, 0]
+                segments.append(torch.stack((x, y, sag), dim=-1))
+            if rim_radius is not None:
+                lower, upper = segments[0][0].clone(), segments[-1][-1].clone()
+                lower[1], upper[1] = -rim_radius, rim_radius
+                segments[0] = torch.cat((lower[None, :], segments[0]))
+                segments[-1] = torch.cat((segments[-1], upper[None, :]))
+            return segments
+
+        # Connect outer edges through glass; mirrors do not change the medium.
+        previous_edge = None
+        medium = material_name(self.sys.system[0])
+        for surface_id, surface in enumerate(self.sys.system[1:-1], start=1):
+            if isinstance(surface, Dummy):
+                continue
+            if not hasattr(surface, 'surface') or not hasattr(surface, 'radius'):
+                continue
+
+            frame = surface_frames[surface_id]
+            segments = [to_global(segment, frame) for segment in surface_segments(surface, rim_radii.get(surface_id))]
+            name = material_name(surface)
+            is_air_stop = (surface_id == self.sys.stop_id and name == 'VACUUM' and medium == 'VACUUM')
+            if is_air_stop:
+                stop_radius = outer_radius(surface)
+                width = stop_radius / 10
+                stop_lines = (
+                    ((-width, stop_radius), (width, stop_radius)),
+                    ((-width, -stop_radius), (width, -stop_radius)),
+                    ((0., stop_radius), (0., stop_radius + width)),
+                    ((0., -stop_radius), (0., -stop_radius - width)),
+                )
+                for line in stop_lines:
+                    local = torch.zeros((2, 3), dtype=dtype, device=device)
+                    local[0, 2], local[1, 2] = line[0][0], line[1][0]
+                    local[0, 1], local[1, 1] = line[0][1], line[1][1]
+                    draw(to_global(local, frame), 'r')
+            else:
+                for segment in segments:
+                    draw(segment)
+
+            edge = torch.stack((segments[0][0], segments[-1][-1]))
+            if previous_edge is not None and medium not in (None, 'VACUUM', 'MIRROR'):
+                direct = torch.linalg.vector_norm(previous_edge - edge, dim=-1).sum()
+                crossed = torch.linalg.vector_norm(previous_edge - edge.flip(0), dim=-1).sum()
+                if crossed < direct:
+                    edge = edge.flip(0)
+                draw(torch.stack((previous_edge, edge)))
+
+            previous_edge = edge
+            if name != 'MIRROR':
+                medium = name
+
+        image_radius = self.sys.system[-1].radius[sys_id, cfg_id]
+        radial = torch.linspace(-image_radius, image_radius, self.sys.surf_samp, dtype=dtype, device=device)
+        local_image = torch.zeros((self.sys.surf_samp, 3), dtype=dtype, device=device)
+        local_image[:, 1] = radial
+        draw(to_global(local_image, record_frames[-1]))
         ax.set_aspect(1)
         
-        with torch.no_grad():
-            ray = self.sample_ray_1d(sampling=M, wavelength=self.sys.wavelengths[self.sys.p_wvl])
-        # rays propagation
+        ray = self.sample_ray_1d(sampling=M, wavelength=self.sys.wavelengths[self.sys.p_wvl])
         ray, o_dic, _ = self.sys.propagate(ray, radius_flag=True, record=True)
-        
-        for j, angle in enumerate(self.sys.norm_views * self.sys.max_view[cfg_id]):
-            # sample rays
-            o = o_dic[:, 0, sys_id, cfg_id, j, 0, :, :][:, ray.valid[0, sys_id, cfg_id, j, 0, :], :].cpu()
-            ax.plot([o[0, :, 2], o[1, :, 2]], [o[0, :, 1], o[1, :, 1]], color=self.color_list[j])
-            plus = 0
-            
-            # draw rays
-            for i, elem in enumerate(self.sys.system[1:-1]):
-                zz1 = o[i + 1, :, 2] + plus
-                yy1 = o[i + 1, :, 1]
-                
-                plus += elem.thick[sys_id, cfg_id].item()
-                zz2 = o[i + 2, :, 2] + plus
-                yy2 = o[i + 2, :, 1]
-                ax.plot([zz1, zz2], [yy1, yy2], color=self.color_list[j])
-        plt.title(f'System {sys_id}, Configuration {cfg_id}: {self.sys.EFFL[sys_id, cfg_id]:.2f}mm, {self.sys.max_view[cfg_id]:.2f}°, F{self.sys.FNO[sys_id, cfg_id]:.2f}')
-        # plt.title(f'Configuration {cfg_id}: {self.sys.EFFL[sys_id, cfg_id]:.2f}mm')
-        plt.tight_layout(pad=0)
+
+        if len(record_frames) != o_dic.shape[0]:
+            raise RuntimeError('layout frames do not match the recorded ray surfaces')
+
+        # Hide auxiliary intersections on backward extensions of folded rays.
+        visible_records = [0] + [i for i, s in enumerate(self.sys.system[1:-1], 1) if not isinstance(s, Dummy)] + [len(record_frames) - 1]
+
+        for j in range(ray.o.shape[3]):
+            valid = ray.valid[0, sys_id, cfg_id, j, 0, :]
+            local_points = o_dic[:, 0, sys_id, cfg_id, j, 0, valid, :]
+            if local_points.shape[1] == 0:
+                continue
+            global_points = torch.stack([
+                to_global(local_points[i], record_frames[i])
+                for i in visible_records
+            ])
+            draw(global_points, self.color_list[j % len(self.color_list)])
+
+        ax.set_xlabel('Global Z (mm)')
+        ax.set_ylabel('Global Y (mm)')
+        ax.set_title(f'System {sys_id}, Configuration {cfg_id}\n'
+                     f'{self.sys.EFFL[sys_id, cfg_id]:.2f} mm, {self.sys.max_view[cfg_id]:.2f}°, F{self.sys.FNO[sys_id, cfg_id]:.2f}',
+                     fontsize=10, pad=5)
+        ax.margins(x=0.02, y=0.02)
+        fig.tight_layout(pad=0.4)
+
+        # Trim equal-aspect whitespace without clipping labels or scaling axes.
+        fig.canvas.draw()
+        bounds = ax.get_tightbbox(fig.canvas.get_renderer()).padded(6)
+        axes_bounds = ax.get_window_extent().frozen()
+        fig.set_size_inches(bounds.width / fig.dpi, bounds.height / fig.dpi)
+        ax.set_position([(axes_bounds.x0 - bounds.x0) / bounds.width,
+                         (axes_bounds.y0 - bounds.y0) / bounds.height,
+                         axes_bounds.width / bounds.width,
+                         axes_bounds.height / bounds.height])
     
     @torch.no_grad()
-    def psf(self, sys_id, cfg_id, pupil_samp, image_samp, image_delta, norm_view:float, azimuth:float, wavelength:float=None, split_channel=False, show=True):
-        ray = self.sys.sample_ray_2d(pupil_samp, norm_view, azimuth, wavelength, samp_method='square')
+    def psf(self, sys_id, cfg_id, pupil_samp, image_samp, image_delta, norm_view:float, azimuth:float, wavelength:float=None, vig:dict=None, split_channel=False, show=True):
+        ray = self.sys.sample_ray_2d(pupil_samp, norm_view, azimuth, wavelength, samp_method='square', vig=vig)
         ray = self.sys.propagate(ray, radius_flag=True, record=False)
         # back to the exit pupil plane
         t_img_ep = self.sys.EXPP[None, :, :, None, None, None] / ray.d[..., 2]
@@ -264,7 +373,8 @@ class Analysis(nn.Module):
             if 1: # 1: RS, 0: Coherent
                 o = (ray.o[w, sys_id, cfg_id, 0, 0] + t_img_ep[w, sys_id, cfg_id, 0, 0][..., None] * ray.d[w, sys_id, cfg_id, 0, 0])[ray.valid[w, sys_id, cfg_id, 0, 0]]
                 t = (ray.t[w, sys_id, cfg_id, 0, 0] + t_img_ep[w, sys_id, cfg_id, 0, 0])[ray.valid[w, sys_id, cfg_id, 0, 0]]
-                psf = RayleighSommerfeldPsfOp.apply(o, t, grid, k, -self.sys.EXPP[sys_id, cfg_id])
+                s = -torch.sign(t_img_ep[w, sys_id, cfg_id, 0, 0][ray.valid[w, sys_id, cfg_id, 0, 0]])
+                psf = RayleighSommerfeldPsfOp.apply(o, s * t, grid, s * k, -self.sys.EXPP[sys_id, cfg_id])
             else:
                 o = ray.o[w, sys_id, cfg_id, 0, 0][ray.valid[w, sys_id, cfg_id, 0, 0]]
                 d = ray.d[w, sys_id, cfg_id, 0, 0][ray.valid[w, sys_id, cfg_id, 0, 0]]
@@ -290,8 +400,8 @@ class Analysis(nn.Module):
     
     
     @torch.no_grad()
-    def wavefront(self, sys_id, cfg_id, pupil_samp, norm_view:float, azimuth:float, wavelength:float=None, use_exit_pupil_shape=True, show=True):
-        ray = self.sys.sample_ray_2d(pupil_samp, norm_view, azimuth, wavelength, samp_method='square')
+    def wavefront(self, sys_id, cfg_id, pupil_samp, norm_view:float, azimuth:float, wavelength:float=None, vig:dict=None, use_exit_pupil_shape=True, show=True):
+        ray = self.sys.sample_ray_2d(pupil_samp, norm_view, azimuth, wavelength, samp_method='square', vig=vig)
         ray = self.sys.propagate(ray, radius_flag=True, record=False)        
         
         p_wvl = self.sys.p_wvl if wavelength == None else 0
@@ -312,7 +422,7 @@ class Analysis(nn.Module):
         C = ((o - rel_o[None, :]) ** 2).sum(dim=-1) - r_chief ** 2 # [M]
         t1 = (-B + torch.sqrt(B ** 2 - 4 * A * C)) / (2 * A) # [M]
         t2 = (-B - torch.sqrt(B ** 2 - 4 * A * C)) / (2 * A) # [M]
-        t_expp = torch.where(t1 > t2, t1, t2) # [M] to the exit sphere
+        t_expp = torch.where(r_chief >= 0, t1, t2) # [M] select the exit-sphere side using the signed chief distance
         opd = (t_chief - r_chief) - (t - t_expp) # [M]
         
         if use_exit_pupil_shape:
@@ -382,8 +492,8 @@ class Analysis(nn.Module):
     
     
     @torch.no_grad()
-    def mtf(self, sys_id, cfg_id, pupil_samp, image_samp, image_delta, norm_view=None, azimuth=None, wavelength:float=None, freq_max=None, freq_delta=None, show=True):        
-        ray = self.sys.sample_ray_2d(pupil_samp, norm_view, azimuth, wavelength, samp_method='square')
+    def mtf(self, sys_id, cfg_id, pupil_samp, image_samp, image_delta, norm_view=None, azimuth=None, wavelength:float=None, vig:dict=None, freq_max=None, freq_delta=None, show=True):        
+        ray = self.sys.sample_ray_2d(pupil_samp, norm_view, azimuth, wavelength, samp_method='square', vig=vig)
         ray = self.sys.propagate(ray, radius_flag=True, record=False)
         
         angle = self.sys.norm_views * self.sys.max_view[cfg_id] if norm_view is None else torch.tensor(norm_view) * self.sys.max_view[cfg_id]
@@ -410,6 +520,8 @@ class Analysis(nn.Module):
         T_all = torch.zeros([len(angle), len(azimuth), num_points])
         S_all = torch.zeros([len(angle), len(azimuth), num_points])
         freq = torch.linspace(0, freq_max, num_points)
+        pad_points = int(freq_cut / freq_delta - image_samp / 2) + 1
+        index = int(pad_points + image_samp / 2)
         
         for i, ang in enumerate(angle):
             for j, azi in enumerate(azimuth):
@@ -428,7 +540,8 @@ class Analysis(nn.Module):
                     if 1: # 1: RS, 0: Coherent
                         o = (ray.o[w, sys_id, cfg_id, i, j] + t_img_ep[w, sys_id, cfg_id, i, j][..., None] * ray.d[w, sys_id, cfg_id, i, j])[ray.valid[w, sys_id, cfg_id, i, j]]
                         t = (ray.t[w, sys_id, cfg_id, i, j] + t_img_ep[w, sys_id, cfg_id, i, j])[ray.valid[w, sys_id, cfg_id, i, j]]
-                        psf = RayleighSommerfeldPsfOp.apply(o, t, grid, k, -self.sys.EXPP[sys_id, cfg_id])
+                        s = -torch.sign(t_img_ep[w, sys_id, cfg_id, i, j][ray.valid[w, sys_id, cfg_id, i, j]])
+                        psf = RayleighSommerfeldPsfOp.apply(o, s * t, grid, s * k, -self.sys.EXPP[sys_id, cfg_id])
                     else:
                         o = ray.o[w, sys_id, cfg_id, i, j][ray.valid[w, sys_id, cfg_id, i, j]]
                         d = ray.d[w, sys_id, cfg_id, i, j][ray.valid[w, sys_id, cfg_id, i, j]]
@@ -436,10 +549,6 @@ class Analysis(nn.Module):
                         psf = CoherentPsfOp.apply(o, d, grid, t, k)
                     
                     psf_mul += psf / psf.sum() * waveweights[w]
-                
-                pad_points = int(freq_cut / freq_delta - image_samp / 2) + 1
-                num_points = int(freq_max / freq_delta) + 1
-                index = int(pad_points + image_samp / 2)
 
                 psf_pad = torch.nn.functional.pad(psf_mul, [pad_points, pad_points, pad_points, pad_points])
                 T = torch.abs(torch.fft.fftshift(torch.fft.fft2(psf_pad)))[:, index][index: index + num_points]
@@ -612,8 +721,8 @@ class Analysis(nn.Module):
             
             
     @torch.no_grad()
-    def psf_spot(self, sys_id, cfg_id, pupil_samp, image_samp, image_delta, norm_view:float, azimuth:float, wavelength:float=None, split_channel=False, show=True):
-        ray = self.sys.sample_ray_2d(pupil_samp, norm_view, azimuth, wavelength, samp_method='square')
+    def psf_spot(self, sys_id, cfg_id, pupil_samp, image_samp, image_delta, norm_view:float, azimuth:float, wavelength:float=None, vig:dict=None, split_channel=False, show=True):
+        ray = self.sys.sample_ray_2d(pupil_samp, norm_view, azimuth, wavelength, samp_method='square', vig=vig)
         ray = self.sys.propagate(ray, radius_flag=True, record=False)
         
         if wavelength == None:
