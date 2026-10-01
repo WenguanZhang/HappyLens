@@ -34,10 +34,6 @@ class Merit(nn.Module):
                 param_list.append({'params': params, 'lr': lr * scale ** -(int(name.split('.ai')[-1]) - 1)})
             elif 'qi' in name:
                 param_list.append({'params': params, 'lr': lr})
-            elif name.endswith('decenter'):
-                param_list.append({'params': params, 'lr': lr * 1e-1})
-            elif name.endswith('tilt'):
-                param_list.append({'params': params, 'lr': lr * 1e-1})
         return param_list
     
     def forward_loss(self, args:dict, **kwargs):
@@ -179,6 +175,8 @@ class Merit(nn.Module):
                     valids &= ~torch.isnan(roc_loss)
                     if writer: writer.add_scalar('optics/C/roc_loss', roc_loss[valids].mean(), count)
                     loss.append(roc_loss)
+                case _:
+                    raise ValueError(f"Unsupported MERIT term for {type(self).__name__}: {func}")
         
         self.sys.valid = valids
         if path: plot_loss_pie(loss, label, self.sys.valid, path)
@@ -229,51 +227,70 @@ class Merit(nn.Module):
         others: to be continue
         """
         loss = self.forward_loss(args) # get valid and invalid systems
-        idx = torch.nan_to_num(loss, torch.inf).argsort() # small -> large
+        invalid = ~self.sys.valid
+        invalid_num = invalid.sum().item()
+        if invalid_num == 0:
+            return
+
+        valid_idx = torch.where(self.sys.valid)[0]
+        if valid_idx.numel() == 0:
+            raise RuntimeError('Cannot reborn systems: no valid parent remains.')
+
+        # Draw from both the better half and the full valid population.
+        ranked = valid_idx[torch.nan_to_num(loss[valid_idx], torch.inf).argsort()]
+        elite = ranked[:max(1, ranked.numel() // 2)]
+        parent_idx = torch.cat((
+            elite[torch.randint(elite.numel(), (invalid_num // 2,), device=elite.device)],
+            valid_idx[torch.randint(valid_idx.numel(), (invalid_num - invalid_num // 2,), device=valid_idx.device)],
+        ))[torch.randperm(invalid_num, device=valid_idx.device)]
         
-        def revise_param(param, idx):
-            valid_data = param.data[self.sys.valid] # [M, cfg] or [M]
-            valid_num = valid_data.shape[0]
-            invalid_num = param.data.shape[0] - valid_num # [N]
-            
-            if invalid_num < valid_num:
-                param.data[~self.sys.valid] = param[idx[:invalid_num]]
-            else:
-                if param.dim() == 1:
-                    revise_data = valid_data.repeat(invalid_num // valid_num + 1)
-                else:
-                    revise_data = valid_data.repeat(invalid_num // valid_num + 1, 1) # [X, cfg]
-                param.data[~self.sys.valid] = revise_data[:invalid_num]
+        def revise_param(param):
+            param.data[invalid] = param.data[parent_idx].clone()
         
         # correct invalid system
         surfs = self.sys.extract_surfs()
+        original_roc = []
         for i, surf in enumerate(surfs[1:-1]):
-            revise_param(surf.radius, idx)
-            revise_param(surf.thick, idx)
-            revise_param(surf.roc, idx)
-            revise_param(surf.conic, idx)
-            revise_param(surf.min_r, idx)
-            revise_param(surf.max_r, idx)
+            revise_param(surf.radius)
+            revise_param(surf.thick)
+            revise_param(surf.roc)
+            original_roc.append(surf.roc.data[invalid].clone())
+            # A shared curvature perturbation preserves all configurations.
+            scale = torch.maximum(surf.roc.data[invalid].abs() * 0.05, torch.full_like(surf.roc.data[invalid], 0.005))
+            surf.roc.data[invalid] += torch.randn_like(scale) * scale
+            revise_param(surf.conic)
+            revise_param(surf.min_r)
+            revise_param(surf.max_r)
             
             if hasattr(surf, 'ai_num'):
                 for j in range(surf.ai_num):
-                    revise_param(eval(f'surf.ai{2 * j + 4}'), idx)
+                    revise_param(eval(f'surf.ai{2 * j + 4}'))
             
             if hasattr(surf, 'qi_num'):
-                revise_param(surf.rnorm, idx)
+                revise_param(surf.rnorm)
                 for j in range(surf.qi_num):
-                    revise_param(eval(f'surf.qi{j}'), idx)
+                    revise_param(eval(f'surf.qi{j}'))
             
             if hasattr(surf, 'g1') and hasattr(surf, 'g2'):
-                revise_param(surf.g1, idx)
-                revise_param(surf.g2, idx)
+                revise_param(surf.g1)
+                revise_param(surf.g2)
         self.sys.update()
+
+        # Fall back to the valid parent if a curvature perturbation is invalid.
+        self.forward_loss(args)
+        failed = invalid & ~self.sys.valid
+        if failed.any():
+            failed_reborn = failed[invalid]
+            for surf, roc in zip(surfs[1:-1], original_roc):
+                surf.roc.data[failed] = roc[failed_reborn]
+            self.sys.update()
+            self.forward_loss(args)
         
         if optimizer:
-            for i in optimizer.state.keys():
-                for j in optimizer.state[i].keys():
-                    if optimizer.state[i][j].shape:
-                        revise_param(optimizer.state[i][j], idx)
+            for state in optimizer.state.values():
+                for value in state.values():
+                    if torch.is_tensor(value) and value.ndim and value.shape[0] == invalid.numel():
+                        value[invalid] = 0
                 
     @torch.no_grad()
     def random_flip_elements(self, args, mask=None, p_fix=0.2, top_pick=False):
@@ -1609,6 +1626,8 @@ class Merit(nn.Module):
                             grid = rel_o + torch.stack([x, y, torch.zeros_like(x)], dim=-1) # [M, M, 3]
                             o = (ray.o[w, _sys, _cfg, _ang, _azi] + t_img_ep[w, _sys, _cfg, _ang, _azi][..., None] * ray.d[w, _sys, _cfg, _ang, _azi])[ray.valid[w, _sys, _cfg, _ang, _azi]]
                             t = (ray.t[w, _sys, _cfg, _ang, _azi] + t_img_ep[w, _sys, _cfg, _ang, _azi])[ray.valid[w, _sys, _cfg, _ang, _azi]]
+                            s = -torch.sign(t_img_ep[w, _sys, _cfg, _ang, _azi][ray.valid[w, _sys, _cfg, _ang, _azi]])
+                            t, k = s * t, s * k
                 
                             if auto:
                                 r = length(grid[:, :, None, :] - o[None, None, ...]).clip(min=eps)
@@ -1677,6 +1696,8 @@ class Merit(nn.Module):
                             # Add zernike wavefront error to the wavefront
                             t = _t[1:] + wf_error[ray.valid[w, _sys, _cfg, _ang, _azi, 1:]]
                             o = _o[1:]
+                            s = -torch.sign(t_img_ep[w, _sys, _cfg, _ang, _azi][ray.valid[w, _sys, _cfg, _ang, _azi]])[1:]
+                            t, k = s * t, s * k
                             
                             if auto:
                                 r = length(grid[:, :, None, :] - o[None, None, ...]).clip(min=eps)
@@ -1949,6 +1970,14 @@ class MeritZ(Merit):
                     valids &= ~torch.isnan(gla_z_loss)
                     if writer: writer.add_scalar('optics/C/gla_z_loss', gla_z_loss[valids].mean(), count)
                     loss.append(gla_z_loss * args[func]['weight'])
+                case 'SURF_GAP':
+                    surf_gap_loss = []
+                    for i in args[func]:
+                        surf_gap_loss.append(self.surf_gap_loss(args[func][i]['s_pre'], args[func][i]['s_aft'], args[func][i]['target'], args[func][i]['mode']) * args[func][i]['weight'])
+                    surf_gap_loss = reduce(lambda x, y: x + y, surf_gap_loss)
+                    valids &= ~torch.isnan(surf_gap_loss)
+                    if writer: writer.add_scalar('optics/C/surf_gap_loss', surf_gap_loss[valids].mean(), count)
+                    loss.append(surf_gap_loss)
                 case 'ROC':
                     roc_loss = []
                     for i in args[func]:
@@ -1957,6 +1986,8 @@ class MeritZ(Merit):
                     valids &= ~torch.isnan(roc_loss)
                     if writer: writer.add_scalar('optics/C/roc_loss', roc_loss[valids].mean(), count)
                     loss.append(roc_loss)
+                case _:
+                    raise ValueError(f"Unsupported MERIT term for {type(self).__name__}: {func}")
         
         self.sys.valid = valids
         if path: plot_loss_pie(loss, label, self.sys.valid, path)
@@ -2020,4 +2051,3 @@ class MeritZ(Merit):
                 loss = torch.where(loss_des > loss_asc, loss_asc, loss_des) # [sys]
                 sort_loss = torch.cat([sort_loss, loss.unsqueeze(0)]) # [surfs, sys]
         return sort_loss.sum(dim=0) # [sys]
-    
