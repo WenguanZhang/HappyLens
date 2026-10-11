@@ -227,7 +227,9 @@ def main(args, seed, save_path):
     writer = SummaryWriter(f'{result_folder}/log')
     count = 0
     best_opt_data = sys.extract_all_sys_data()
-    with torch.no_grad(): min_loss = torch.nan_to_num(merit.forward_loss(args.MERIT), torch.inf)
+    with torch.no_grad():
+        loss = merit.forward_loss(args.MERIT)
+        min_loss = torch.where(sys.valid, loss, torch.inf)
     for es, epochs in enumerate(args.EPOCH):
         for idx in range(1, len(sys.system)-1):
             if args.ADD_PARAM[es] is not None:
@@ -262,20 +264,23 @@ def main(args, seed, save_path):
                 merit.reborn_bad_system(args.MERIT, optimizer)
                 update()
                 if best_opt_data is not None and min_loss is not None:
-                    cur_opt_data = sys.extract_all_sys_data()
-                    with torch.no_grad(): cur_loss = torch.nan_to_num(merit.forward_loss(args.MERIT), torch.inf)
+                    with torch.no_grad():
+                        cur_loss = merit.forward_loss(args.MERIT)
+                        cur_loss = torch.where(sys.valid, cur_loss, torch.inf)
                     valid = (cur_loss < min_loss) & sys.valid
+                    min_loss[valid] = cur_loss[valid]
+                    
+                    cur_opt_data = sys.extract_all_sys_data()
                     for s in best_opt_data:
                         for key in best_opt_data[s]:
                             best_opt_data[s][key][valid] = cur_opt_data[s][key][valid]
-                    min_loss[valid] = cur_loss[valid]
                     
             if count % args.SAVE_FREQ == 0:
                 save_path = f'{result_folder}/epoch_{count}'
                 os.makedirs(save_path)
                 update()
                 with torch.no_grad(): loss = merit.forward_loss(args.MERIT, path=save_path)
-                idx = torch.nan_to_num(loss, torch.inf).argmin()
+                idx = torch.where(sys.valid, loss, torch.inf).argmin()
                 analysis.save_analysis_results(save_path, idx, loss[idx], args.SAMP_RAYS)
 
         if hasattr(args, 'SHADE'):
@@ -298,23 +303,26 @@ def main(args, seed, save_path):
             os.makedirs(save_path)
             update()
             with torch.no_grad(): loss = merit.forward_loss(args.MERIT)
-            idx = torch.nan_to_num(loss, torch.inf).argmin()
+            idx = torch.where(sys.valid, loss, torch.inf).argmin()
             analysis.save_analysis_results(save_path, idx, loss[idx], args.SAMP_RAYS)
         
-        cur_opt_data = sys.extract_all_sys_data()
-        with torch.no_grad(): cur_loss = torch.nan_to_num(merit.forward_loss(args.MERIT), torch.inf)
+        with torch.no_grad():
+            cur_loss = merit.forward_loss(args.MERIT)
+            cur_loss = torch.where(sys.valid, cur_loss, torch.inf)
         valid = (cur_loss < min_loss) & sys.valid
+        min_loss[valid] = cur_loss[valid]
+        
+        cur_opt_data = sys.extract_all_sys_data()
         for s in best_opt_data:
             for key in best_opt_data[s]:
                 best_opt_data[s][key][valid] = cur_opt_data[s][key][valid]
-        min_loss[valid] = cur_loss[valid]
                 
     #!->7 save results
     save_file_num = 10
     sys.fit_opt_data(best_opt_data)
     merit.sys.update()
     with torch.no_grad(): loss = merit.forward_loss(args.MERIT)
-    _, idx = torch.topk(torch.nan_to_num(loss, torch.inf), save_file_num, largest=False)
+    _, idx = torch.topk(torch.where(sys.valid, loss, torch.inf), save_file_num, largest=False)
     
     for i, idc in enumerate(idx):
         save_path = f'{result_folder}/min_loss_{i+1}'

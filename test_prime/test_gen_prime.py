@@ -164,7 +164,9 @@ def main(args, seed, save_path):
                 merit.update_system(rmax=args.MAX_RADIUS)
                 
                 if best_opt_data is not None and min_loss is not None:
-                    with torch.no_grad(): cur_loss = torch.nan_to_num(merit.forward_loss(args.MERIT), torch.inf)
+                    with torch.no_grad():
+                        cur_loss = merit.forward_loss(args.MERIT)
+                        cur_loss = torch.where(sys.valid, cur_loss, torch.inf)
                     valid = (cur_loss < min_loss) & sys.valid
                     min_loss[valid] = cur_loss[valid]
                     #TODO: save
@@ -178,7 +180,7 @@ def main(args, seed, save_path):
                 os.makedirs(save_path)
                 merit.update_system(rmax=args.MAX_RADIUS)
                 with torch.no_grad(): loss = merit.forward_loss(args.MERIT, path=save_path)
-                idx = torch.nan_to_num(loss, torch.inf).argmin()
+                idx = torch.where(sys.valid, loss, torch.inf).argmin()
                 analysis.save_analysis_results(save_path, idx, loss[idx], args.SAMP_RAYS, args.SAMP_METHOD)
 
         if (es + 1) <= len(args.EPOCH):
@@ -191,12 +193,16 @@ def main(args, seed, save_path):
                 case 'switch':
                     if best_opt_data is None and min_loss is None and count_view >= args.MAX_STATE_T:
                         best_opt_data = sys.extract_all_sys_data()
-                        with torch.no_grad(): min_loss = torch.nan_to_num(merit.forward_loss(args.MERIT), torch.inf)
+                        with torch.no_grad():
+                            loss = merit.forward_loss(args.MERIT)
+                            min_loss = torch.where(sys.valid, loss, torch.inf)
                             
                 case 'auto':
                     if best_opt_data is None and min_loss is None and count_view >= args.MAX_STATE_T:
                         best_opt_data = sys.extract_all_sys_data() #TODO: save
-                        with torch.no_grad(): min_loss = torch.nan_to_num(merit.forward_loss(args.MERIT), torch.inf)
+                        with torch.no_grad():
+                            loss = merit.forward_loss(args.MERIT)
+                            min_loss = torch.where(sys.valid, loss, torch.inf)
                         continue
                     elif count_view < args.MAX_STATE_T:
                         pass
@@ -247,11 +253,13 @@ def main(args, seed, save_path):
             save_path = f'{result_folder}/epoch_{count}'
             os.makedirs(save_path, exist_ok=True)
             with torch.no_grad(): loss = merit.forward_loss(args.MERIT, path=save_path)
-            idx = torch.nan_to_num(loss, torch.inf).argmin()
+            idx = torch.where(sys.valid, loss, torch.inf).argmin()
             analysis.save_analysis_results(save_path, idx, loss[idx], args.SAMP_RAYS, args.SAMP_METHOD)
             
             if best_opt_data is not None and min_loss is not None:
-                with torch.no_grad(): cur_loss = torch.nan_to_num(merit.forward_loss(args.MERIT), torch.inf)
+                with torch.no_grad():
+                    cur_loss = merit.forward_loss(args.MERIT)
+                    cur_loss = torch.where(sys.valid, cur_loss, torch.inf)
                 valid = (cur_loss < min_loss) & sys.valid
                 min_loss[valid] = cur_loss[valid]
                 #TODO: save
@@ -265,7 +273,7 @@ def main(args, seed, save_path):
     sys.fit_opt_data(best_opt_data) #TODO: save
     merit.update_system(rmax=args.MAX_RADIUS)
     with torch.no_grad(): loss = merit.forward_loss(args.MERIT)
-    _, idx = torch.topk(torch.nan_to_num(loss, torch.inf), save_file_num, largest=False)
+    _, idx = torch.topk(torch.where(sys.valid, loss, torch.inf), save_file_num, largest=False)
     
     for i, idc in enumerate(idx):
         save_path = f'{result_folder}/min_loss_{i+1}'
