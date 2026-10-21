@@ -1,5 +1,6 @@
 import matplotlib.pyplot as plt
 from functools import reduce
+from typing import Union
 from tqdm import tqdm
 
 import torch
@@ -293,6 +294,45 @@ class Merit(nn.Module):
                         value[invalid] = 0
                 
     @torch.no_grad()
+    def solve_curvature(self, opt_data:dict, target:Union[float, list], sys_id:int, surf_id:int):
+        """Update only opt_data[surf_id-1]['roc'][sys_id]; return success.
+        surf_id uses extract_surfs() numbering (first optical surface is 1).
+        target is EFL: a scalar or one value per configuration.
+        self.sys is restored after evaluating the candidate.
+        """
+        surfs = self.sys.extract_surfs()
+        surf_id = surf_id % len(surfs)
+        assert 0 < surf_id < len(surfs)-1 and 0 <= sys_id < self.sys.sys_num
+        
+        roc = opt_data[surf_id-1]['roc'][sys_id].clone()
+        target = torch.as_tensor(target, dtype=roc.dtype, device=roc.device)
+        target = torch.broadcast_to(target, (self.sys.cfg_num,))
+        assert torch.isfinite(target).all() and (target != 0).all()
+        
+        ori_data = self.sys.extract_opt_data()
+        try:
+            self.sys.fit_opt_data(opt_data)
+            self.sys.update()
+            p0 = self.sys.EFFL[sys_id].reciprocal().clone()
+            surf = surfs[surf_id]
+            surf.roc[sys_id] += 1.e-4
+            self.sys.update()
+            slope = (self.sys.EFFL[sys_id].reciprocal() - p0) / 1.e-4
+            # One shared curvature must recover every configuration.
+            delta = ((target.reciprocal() - p0) * slope).sum() / slope.square().sum()
+            if not torch.isfinite(delta): return False
+            surf.roc[sys_id] = roc + delta
+            self.sys.update()
+            efl = self.sys.EFFL[sys_id]
+            if not torch.isfinite(efl).all():
+                return False
+            opt_data[surf_id-1]['roc'][sys_id] = surf.roc[sys_id]
+            return True
+        finally:
+            self.sys.fit_opt_data(ori_data)
+            self.sys.update()
+                
+    @torch.no_grad()
     def random_flip_elements(self, args, mask=None, p_fix=0.2, top_pick=False):
         if mask is None: mask = torch.zeros(self.sys.sys_num).bool()
         ori_data = self.sys.extract_opt_data()
@@ -315,7 +355,7 @@ class Merit(nn.Module):
         
         if top_pick:
             loss = self.forward_loss(args) # [sys]
-            _, top_id = torch.topk(loss, int(self.sys.sys_num * p_fix), largest=False)
+            _, top_id = torch.topk(torch.where(self.sys.valid, loss, torch.inf), int(self.sys.sys_num * p_fix), largest=False)
         else:
             top_id = torch.randperm(self.sys.sys_num)[0:int(self.sys.sys_num * p_fix)]
         
@@ -361,7 +401,10 @@ class Merit(nn.Module):
                 r = self.sys.system[s_start].radius[i].detach().clone()
                 self.sys.system[s_start].radius.data[i] = self.sys.system[s_end].radius[i].detach().clone()
                 self.sys.system[s_end].radius.data[i] = r
-                    
+                
+                surf_ids = [i for i, surf in enumerate(surfs[1:-1], 1) if surf.roc.requires_grad]
+                self.solve_curvature(new_data, args['EFL']['target'], i, surf_ids[torch.randint(len(surf_ids), ()).item()])
+                
         self.sys.fit_opt_data(new_data)
         self.sys.update()
         
@@ -396,7 +439,7 @@ class Merit(nn.Module):
         
         if top_pick:
             loss = self.forward_loss(args) # [sys]
-            _, top_id = torch.topk(loss, int(self.sys.sys_num * p_fix), largest=False)
+            _, top_id = torch.topk(torch.where(self.sys.valid, loss, torch.inf), int(self.sys.sys_num * p_fix), largest=False)
         else:
             top_id = torch.randperm(self.sys.sys_num)[0:int(self.sys.sys_num * p_fix)]
         
@@ -418,7 +461,10 @@ class Merit(nn.Module):
                     index = torch.randint(0, catalog_params.shape[0], (1,)).item()
                     new_data[s_start]['g1'][i] = catalog_params[index, 0].clone().detach() # [sys]
                     new_data[s_start]['g2'][i] = catalog_params[index, 1].clone().detach()
-                    
+                
+                surf_ids = [i for i, surf in enumerate(surfs[1:-1], 1) if surf.roc.requires_grad]
+                self.solve_curvature(new_data, args['EFL']['target'], i, surf_ids[torch.randint(len(surf_ids), ()).item()])
+                
         self.sys.fit_opt_data(new_data)
         self.sys.update()
         
@@ -431,34 +477,63 @@ class Merit(nn.Module):
         self.sys.update()
         
     @torch.no_grad()
-    def random_perturb_roc_thick(self, args, scale, mask=None, p_fix=0.2, top_pick=False):
+    def random_perturb_thick(self, args, mask=None, p_fix=0.2, top_pick=False):
         if mask is None: mask = torch.zeros(self.sys.sys_num).bool()
         ori_data = self.sys.extract_opt_data()
         surfs = self.sys.extract_surfs()
-        surfs_id = []
-        for idx, surf in enumerate(surfs):
-            if surf.__class__.__name__ in ['Sphere', 'Asphere', 'Qbfs', 'Qcon']:
-                if surf.roc.requires_grad and surf.thick.requires_grad:
-                    surfs_id.append(idx)
 
         if top_pick:
             loss = self.forward_loss(args) # [sys]
-            _, top_id = torch.topk(loss, int(self.sys.sys_num * p_fix), largest=False)
+            _, top_id = torch.topk(torch.where(self.sys.valid, loss, torch.inf), int(self.sys.sys_num * p_fix), largest=False)
         else:
             top_id = torch.randperm(self.sys.sys_num)[0:int(self.sys.sys_num * p_fix)]
+        
+        selected = ~mask.to(device=self.sys.valid.device)
+        selected[top_id] = False
+        roc_ids = [j for j, surf in enumerate(surfs[1:-1], 1) if surf.roc.requires_grad]
+        thick_ids = [j for j, surf in enumerate(surfs[1:-1], 1) if surf.thick.requires_grad]
+        assert roc_ids and thick_ids, 'Need an adjustable curvature and thickness'
+        noise, solve_ids = {}, {}
         
         new_data = self.sys.extract_opt_data()
         for i in range(self.sys.sys_num):
             if (i in top_id) or mask[i]:
                 continue
             else:
-                x = torch.randint(0, len(surfs_id), (1,)).item()
-                surf_id = surfs_id[x]
-                new_data[surf_id-1]['roc'][i] = new_data[surf_id-1]['roc'][i] * scale * (torch.rand(1) * 2 - 1)
-                
-                x = torch.randint(0, len(surfs_id), (1,)).item()
-                surf_id = surfs_id[x]
-                new_data[surf_id-1]['thick'][i] = new_data[surf_id-1]['thick'][i] * scale * torch.rand(1)
+                noise[i] = {}
+                for s_id in thick_ids:
+                    scale = 0.5 if 'VACUUM' in surfs[s_id].material['name'] else 0.15
+                    noise[i][s_id] = scale * (2 * torch.rand(1) - 1)
+                solve_ids[i] = roc_ids[torch.randint(len(roc_ids), ()).item()]
+        
+        # Retry only failures, keeping each direction and compensation surface.
+        pending = selected.clone()
+        for attempt in range(4):
+            if not pending.any(): break
+            
+            for s in ori_data:
+                for key in ori_data[s]:
+                    new_data[s][key][pending] = ori_data[s][key][pending]
+            solved = torch.zeros_like(pending)
+            
+            for j in pending.nonzero().flatten().tolist():
+                for s_id in thick_ids:
+                    new_data[s_id-1]['thick'][j] = (ori_data[s_id-1]['thick'][j] * torch.exp(noise[j][s_id] * (0.5 ** attempt)))
+                solved[j] = self.solve_curvature(new_data, args['EFL']['target'], j, solve_ids[j])
+            
+            for s in ori_data:
+                for key in ori_data[s]:
+                    new_data[s][key][pending & ~solved] = ori_data[s][key][pending & ~solved]
+            self.sys.fit_opt_data(new_data)
+            self.sys.update()
+            loss = self.forward_loss(args)
+            accepted = pending & solved & self.sys.valid & torch.isfinite(loss)
+            pending &= ~accepted
+            print(attempt, 'thickness perturbation: accepted', accepted.sum().item(), 'pending', pending.sum().item())
+        
+        for s in ori_data:
+            for key in ori_data[s]:
+                new_data[s][key][pending] = ori_data[s][key][pending]
         
         self.sys.fit_opt_data(new_data)
         self.sys.update()
@@ -471,7 +546,7 @@ class Merit(nn.Module):
         self.sys.update()
         
     @torch.no_grad()
-    def random_perturb_Qtype(self, args, scale, mask=None, p_fix=0.2, top_pick=False):
+    def random_perturb_Qtype(self, args, mask=None, p_fix=0.2, top_pick=False):
         if mask is None: mask = torch.zeros(self.sys.sys_num).bool()
         ori_data = self.sys.extract_opt_data()
         surfs = self.sys.extract_surfs()
@@ -484,7 +559,7 @@ class Merit(nn.Module):
         
         if top_pick:
             loss = self.forward_loss(args) # [sys]
-            _, top_id = torch.topk(loss, int(self.sys.sys_num * p_fix), largest=False)
+            _, top_id = torch.topk(torch.where(self.sys.valid, loss, torch.inf), int(self.sys.sys_num * p_fix), largest=False)
         else:
             top_id = torch.randperm(self.sys.sys_num)[0:int(self.sys.sys_num * p_fix)]
         
@@ -493,27 +568,7 @@ class Merit(nn.Module):
             if (i in top_id) or mask[i]:
                 continue
             else:
-                x = torch.randint(0, len(q_surf), (1,)).item()
-                surf_id = q_surf[x]
-                
-                configurations = [
-                    (9, [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]),
-                    (8, [0, 1, 2, 3, 4, 5, 6, 7, 8]),
-                    (7, [0, 1, 2, 3, 4, 5, 6, 7]),
-                    (6, [0, 1, 2, 3, 4, 5, 6]),
-                    (5, [0, 1, 2, 3, 4, 5]),
-                    (4, [0, 1, 2, 3, 4]),
-                    (3, [0, 1, 2, 3]),
-                    (2, [0, 1, 2]),
-                    (1, [0, 1]),
-                ]
-                
-                for max_exp, all_exps in configurations:
-                    key = f'qi{max_exp}'
-                    if key in new_data[surf_id-1]:
-                        q = torch.randint(0, len(all_exps), (1,)).item()
-                        new_data[surf_id-1][f'qi{q}'][i] = new_data[surf_id-1][f'qi{q}'][i] * (1. + scale * (torch.rand(1) * 2 - 1))
-                        break
+                raise NotImplementedError("Random perturbation for Q-type surfaces is not implemented yet.")
         
         self.sys.fit_opt_data(new_data)
         self.sys.update()
@@ -526,20 +581,20 @@ class Merit(nn.Module):
         self.sys.update()
     
     @torch.no_grad()
-    def random_perturb_asphere(self, args, mask=None, p_fix=0.2, epsilon=1.e-2, sampling=101, top_pick=False):
+    def random_perturb_Asph(self, args, mask=None, p_fix=0.2, top_pick=False):
         if mask is None: mask = torch.zeros(self.sys.sys_num).bool()
         ori_data = self.sys.extract_opt_data()
         surfs = self.sys.extract_surfs()
-        asp = []
+        a_surf = []
         for idx, surf in enumerate(surfs):
             if surf.__class__.__name__ == 'Asphere':
-                asp.append(idx)
-        if asp == []:
+                a_surf.append(idx)
+        if a_surf == []:
             return
         
         if top_pick:
             loss = self.forward_loss(args) # [sys]
-            _, top_id = torch.topk(loss, int(self.sys.sys_num * p_fix), largest=False)
+            _, top_id = torch.topk(torch.where(self.sys.valid, loss, torch.inf), int(self.sys.sys_num * p_fix), largest=False)
         else:
             top_id = torch.randperm(self.sys.sys_num)[0:int(self.sys.sys_num * p_fix)]
         
@@ -548,46 +603,7 @@ class Merit(nn.Module):
             if (i in top_id) or mask[i]:
                 continue
             else:
-                x = torch.randint(0, len(asp), (1,)).item()
-                surf_id = asp[x]
-                radius = surfs[surf_id].radius[i].max()
-
-                configurations = [
-                    (16, [4, 6, 8, 10, 12, 14, 16]),
-                    (14, [4, 6, 8, 10, 12, 14]),
-                    (12, [4, 6, 8, 10, 12]),
-                    (10, [4, 6, 8, 10]),
-                    (8, [4, 6, 8]),
-                    (6, [4, 6]),
-                ]
-                
-                ai_list = torch.tensor([])
-                for max_exp, all_exps in configurations:
-                    key = f'ai{max_exp}'
-                    if key in new_data[surf_id-1]:
-                        r = torch.linspace(0, radius, sampling)
-                        M = torch.stack([r ** exp for exp in all_exps]).T
-                        for exp in all_exps:
-                            if exp <= max_exp:
-                                ai_list = torch.cat([ai_list, new_data[surf_id-1][f'ai{exp}'][i][None, ...]])
-                        
-                        U, s, Vt = torch.linalg.svd(M, full_matrices=False)
-                        
-                        k = 2
-                        V_small = Vt.T[:, -k:]
-                        weights = torch.randn(k)
-                        weights /= torch.linalg.norm(weights)
-                        v_rand = V_small @ weights
-                        v_rand /= torch.norm(v_rand)
-
-                        Mv = M @ v_rand
-                        scale = epsilon / torch.max(torch.abs(Mv))
-                        delta = scale * v_rand
-                        
-                        for exp_id, exp in enumerate(all_exps):
-                            exp_key = f'ai{exp}'
-                            new_data[surf_id-1][exp_key][i] += delta[exp_id]
-                        break
+                raise NotImplementedError("Random perturbation for Asphere surfaces is not implemented yet.")
         
         self.sys.fit_opt_data(new_data)
         self.sys.update()
