@@ -37,7 +37,7 @@ MAT_CATA: 'GG|GG|GG|G' # G: Glass, P: Plastic
 # MAT_CATA: 'GG|GG|GG|G' # G: Glass, P: Plastic
 
 DELANO_SYS: 50000
-LR_DELANO: 1.e-3
+LR_DELANO: 1.e-4
 STOP_POS: 2
 STOP_FIX: True
 
@@ -53,14 +53,14 @@ MERIT: {
   # A
   EFL: {target: [7.5, 15.0, 22.5, 30.0], weight: 50.},
   FNO: {target: [2.5, 3.0, 3.5, 4.], weight: 1.},
-  SPOT: {ref: 'chief', k: 1., weight: 20.},
+  SPOT: {ref: 'ideal', k: 1., weight: 20.},
   # WAVEFRONT: {mode: 'tv', weight: 0.01},
   DISTOR: {target: 0.1, weight: 20.},
-  LATERAL: {ref: 'rms', weight: 0.2},
+  LATERAL: {ref: 'rms', weight: 0.4},
   # B
   BFL: {target: 10., weight: 1.},
   TOTR: {target: 50., weight: 1.},
-  GLA_MIN_THICK: {min_thick: 0.5, td_ratio: 0.1, weight: 200.},
+  GLA_MIN_THICK: {min_thick: 1.0, td_ratio: 0.04, weight: 200.},
   GLA_MAX_THICK: {max_thick: 10.0, td_ratio: 1.0, weight: 1.},
   AIR_THICK: {FF_target: 0.2, FM_target: 0.5, MM_target: 1., weight: 200.},
   SURF_K: {target: 45., weight: 5.},
@@ -89,7 +89,7 @@ EPOCH: [2000, 500, 500, 500, 500, 500, 500, 500, 500, 500, 500]
 MAX_STATE_T: 2000
 ADD_PARAM: [['ai4'], null, null, null, null, null, null, null, null, null, null]
 OPT_MAT_STAGE: [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0]
-LR_OPT: 1.e-2
+LR_OPT: 2.e-3
 LR_SCALE: 10.
 DROPOUT: 0.1
 

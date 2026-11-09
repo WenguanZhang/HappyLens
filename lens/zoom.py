@@ -5,7 +5,7 @@ from tqdm import tqdm
 import math
 
 from .surface import Sphere, OBJECT, IMAGE, Asphere, Qcon, Qbfs
-from .utils import glass_catalog, glass_catalog_params, plastic_catalog, plastic_catalog_params, nv_to_g1_g2, generate_normalized_numbers, fit_get_mat_id, limit_var
+from .utils import glass_catalog, glass_catalog_params, plastic_catalog, plastic_catalog_params, nv_to_g1_g2, generate_normalized_numbers, fit_get_mat_id, limit_var, smooth_abs
 
 class Zoom(nn.Module):
     
@@ -47,7 +47,7 @@ class Zoom(nn.Module):
         self.y_ybar_init()
         self.generate()
         
-        self.fst_tol_iters = 500
+        self.fst_tol_iters = 44
         self.ins_tol_iters = 100
         self.iters = 0
         self.loss_SA = []
@@ -340,7 +340,7 @@ class Zoom(nn.Module):
         """
         Merit the power of each configuration.
         """
-        loss_pow = (self.sub_effl - torch.mean(self.sub_effl, dim=1, keepdim=True)).abs()
+        loss_pow = smooth_abs(self.sub_effl - torch.mean(self.sub_effl, dim=1, keepdim=True))
         return loss_pow.sum(dim=[-2, -1]) # [sys]
     
     def merit_angle(self):
@@ -359,7 +359,7 @@ class Zoom(nn.Module):
         _u_c = torch.ones_like(_y_c) * torch.tan(torch.deg2rad(self.target_fov))[None, :, None] # [sys, cfg, M]
         _, u_c = self.propagate(_y_c, _u_c)
     
-        loss = ((u_m[1:, :, :, :] - u_m[:-1, :, :, :]).abs()).amax(dim=[-1]).sum(dim=[0, 2]) + ((u_c[1:, :, :, :] - u_c[:-1, :, :, :]).abs()).amax(dim=[-1]).sum(dim=[0, 2])
+        loss = smooth_abs(u_m[1:, :, :, :] - u_m[:-1, :, :, :]).amax(dim=[-1]).sum(dim=[0, 2]) + smooth_abs(u_c[1:, :, :, :] - u_c[:-1, :, :, :]).amax(dim=[-1]).sum(dim=[0, 2])
         return loss # [sys]
     
     def merit_totr(self):
@@ -441,47 +441,59 @@ class Zoom(nn.Module):
         # Merit y, ybar
         # ======================================================== #
         # Step1: ------------------------------------------------- #
+        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, factor=0.5, min_lr=lr*0.01)
         loss_min = torch.ones(self.sys_num) * 1e10
         _y_m, _ybar_m = torch.zeros_like(self._y), torch.zeros_like(self._ybar)
         iters_tol = 1
-        while iters_tol < self.fst_tol_iters:
+        while iters_tol <= self.fst_tol_iters:
             optimizer.zero_grad()
             self.iters += 1
             loss = self.fitness_A()
             
             valid = loss_min > loss
-            loss_min[valid] = loss[valid]
-            _y_m[valid], _ybar_m[valid] = self._y[valid], self._ybar[valid]
-            pbar.set_postfix_str(f'step: 1/2, min loss: {loss_min.min().item()}, max loss: {loss_min.max().item()}')
-            self.loss_Ae.append(loss_min.min().item())
-        
-            iters_tol = 1 if loss.min() <= loss_min.min() else iters_tol + 1
+            loss_min[valid] = loss.detach()[valid]
+            _y_m[valid], _ybar_m[valid] = self._y.detach()[valid], self._ybar.detach()[valid]
+            min_loss = loss_min.min().item()
+            pbar.set_postfix_str(f'step: 1/2, min loss: {min_loss}, max loss: {loss_min.max().item()}')
+            self.loss_Ae.append(min_loss)
+
+            improved = min_loss < scheduler.best * (1 - scheduler.threshold)
+            iters_tol = 1 if improved else iters_tol + 1
             
             loss.sum().backward()
             optimizer.step()
+            scheduler.step(min_loss)
             self.update_y_ybar()
             self.generate()
             
         # Step2: ------------------------------------------------- #
+        # Keep the best parameters independent of optimizer updates.
+        self._y.data, self._ybar.data = _y_m.clone(), _ybar_m.clone()
+        self.update_y_ybar()
+        self.generate()
+        optimizer = torch.optim.Adam([self._y, self._ybar], lr=lr)
         # adjust dist and pow diff
-        self._y.data, self._ybar.data = _y_m, _ybar_m
+        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, factor=0.5, min_lr=lr*0.01)
         loss_min = torch.ones(self.sys_num) * 1e10
         iters_tol = 1
-        while iters_tol < self.fst_tol_iters:
+        while iters_tol <= self.fst_tol_iters:
             optimizer.zero_grad()
             self.iters += 1
             loss = self.fitness_B()
             
             valid = loss_min > loss
-            loss_min[valid] = loss[valid]
-            _y_m[valid], _ybar_m[valid] = self._y[valid], self._ybar[valid]
-            pbar.set_postfix_str(f'step: 2/2, min loss: {loss_min.min().item()}, max loss: {loss_min.max().item()}')
-            self.loss_As.append(loss_min.min().item())
-        
-            iters_tol = 1 if loss.min() <= loss_min.min() else iters_tol + 1
+            loss_min[valid] = loss.detach()[valid]
+            _y_m[valid], _ybar_m[valid] = self._y.detach()[valid], self._ybar.detach()[valid]
+            min_loss = loss_min.min().item()
+            pbar.set_postfix_str(f'step: 2/2, min loss: {min_loss}, max loss: {loss_min.max().item()}')
+            self.loss_As.append(min_loss)
+
+            improved = min_loss < scheduler.best * (1 - scheduler.threshold)
+            iters_tol = 1 if improved else iters_tol + 1
             
             loss.sum().backward()
             optimizer.step()
+            scheduler.step(min_loss)
             self.update_y_ybar()
             self.generate()
         

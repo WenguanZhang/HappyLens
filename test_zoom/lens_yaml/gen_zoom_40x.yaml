@@ -1,5 +1,5 @@
 DEVICE: "cuda:0"
-SEED: [0, 2]
+SEED: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
 
 MATERIAL_CATALOG:
   GLASS: schott
@@ -43,18 +43,18 @@ MERIT: {
   # A
   EFL: {target: [5.0, 50.0, 100.0, 150.0, 200.0], weight: 50.},
   FNO: {target: [4.0, 4.4, 4.8, 5.2, 5.6], weight: 1.},
-  SPOT: {ref: 'chief', k: 1., weight: 20.},
+  SPOT: {ref: 'ideal', k: 1., weight: 20.},
   # WAVEFRONT: {mode: 'tv', weight: 0.01},
   DISTOR: {target: 0.1, weight: 20.},
   LATERAL: {ref: 'rms', weight: 0.4},
   # B
   BFL: {target: 20., weight: 1.},
   TOTR: {target: 200., weight: 1.},
-  GLA_MIN_THICK: {min_thick: 0.5, td_ratio: 0.1, weight: 200.},
+  GLA_MIN_THICK: {min_thick: 1.0, td_ratio: 0.04, weight: 200.},
   GLA_MAX_THICK: {max_thick: 10.0, td_ratio: 1.0, weight: 1.},
   AIR_THICK: {FF_target: 0.5, FM_target: 1.0, MM_target: 2.5, weight: 200.},
   SURF_K: {target: 45., weight: 5.},
-  GLA_Z: {z_min: 0.1, weight: 100.},
+  GLA_Z: {z_min: 0.15, weight: 200.},
   FIX_LENS: {weight: 5.},
   SMOOTH_ZOOM: {weight: 5.},
   # C
@@ -75,11 +75,11 @@ SHADE: {
 }
 PRE_OPT: False
 
-EPOCH: [1500, 1500, 1500, 500, 500, 500, 500, 500, 500, 500, 500, 500, 500, 500, 500, 500, 500, 500]
-MAX_STATE_T: 4500
+EPOCH: [2000, 1500, 1000, 500, 500, 500, 500, 500, 500, 500, 500, 500, 500, 500, 500, 500, 500, 500]
+MAX_STATE_T: 5000
 ADD_PARAM: [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null]
 OPT_MAT_STAGE: [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0]
-LR_OPT: 1.e-3
+LR_OPT: 2.e-3
 LR_SCALE: 10.
 DROPOUT: 0.1
 

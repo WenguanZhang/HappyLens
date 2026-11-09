@@ -8,7 +8,7 @@ import torch.nn as nn
 
 from .system import System
 from .surface import IMAGE
-from .utils import length, RayleighSommerfeldPsfOp, CoherentPsfOp, eps, limit_var, plot_loss_pie, glass_catalog_params, plastic_catalog_params, find_key, zernike_wavefront
+from .utils import length, RayleighSommerfeldPsfOp, CoherentPsfOp, eps, limit_var, plot_loss_pie, glass_catalog_params, plastic_catalog_params, find_key, zernike_wavefront, smooth_abs, smooth_positive, smooth_max, smooth_min
 
 class Merit(nn.Module):
     def __init__(self, system:System, samp_rays=6):
@@ -1082,9 +1082,12 @@ class Merit(nn.Module):
                 ref_x = x.gather(-1, self.chief_id_dic[..., None]) # [wav, sys, cfg, ang, azi, 1]
                 ref_y = y.gather(-1, self.chief_id_dic[..., None]) # [wav, sys, cfg, ang, azi, 1]
                 
-        res = (ref_x - ref_x.mean(dim=0, keepdim=True)).abs() + (ref_y - ref_y.mean(dim=0, keepdim=True)).abs() # [wav, sys, cfg, ang, azi, 1]
-        scale = 1.22 * self.sys.FNO * self.sys.wavelengths[self.sys.p_wvl] # [sys, cfg] / mm
-        res = res[..., 0] / scale[None, :, :, None, None]
+        scale = 1.22 * self.sys.FNO.abs() * self.sys.wavelengths[self.sys.p_wvl] # [sys, cfg] / mm
+        scale = scale[None, :, :, None, None, None]
+        # Smooth within 0.1 Airy radius; keep the original scale for larger errors.
+        res = smooth_abs((ref_x - ref_x.mean(dim=0, keepdim=True)) / scale, beta=0.1) + \
+              smooth_abs((ref_y - ref_y.mean(dim=0, keepdim=True)) / scale, beta=0.1)
+        res = res[..., 0]
         return res.sum(dim=[0, 2, 3, 4])
     
     def spot_loss(self, ref='rms', k=1., efl=None):
@@ -1121,7 +1124,8 @@ class Merit(nn.Module):
         dx = x - ref_x
         dy = y - ref_y
         spot_ms = torch.where(self.v_dic, dx ** 2 + dy ** 2, 0.) # [wav, sys, cfg, ang, azi, M]
-        weight = torch.where(self.v_dic, torch.exp((k * (dx ** 2 + dy ** 2)).clip(0., 1.)), 0.) # [wav, sys, cfg, ang, azi, M]
+        energy = max(k, 0.) * (dx ** 2 + dy ** 2)
+        weight = torch.where(self.v_dic, torch.exp(1 - torch.nn.functional.softplus(1 - energy, beta=100.)), 0.) # [wav, sys, cfg, ang, azi, M]
         spot_loss = (spot_ms * weight).sum(dim=-1) * self.sys.waveweights[:, None, None, None, None] / self.sys.waveweights.sum() # [wav, sys, cfg, ang, azi]
         return spot_loss.sum(dim=[0, 2, 3, 4])
         
@@ -1153,7 +1157,9 @@ class Merit(nn.Module):
         if mode == 'rms':
             opd_loss = torch.where(self.v_dic, opd ** 2, 0.).sum(dim=-1) / self.v_dic.sum(dim=-1) # [wav, sys, cfg, ang, azi]
         elif mode == 'tv':
-            opd_loss = opd.amax(dim=-1) - opd.amin(dim=-1) # [wav, sys, cfg, ang, azi]
+            opd_max = smooth_max(torch.where(self.v_dic, opd, -torch.inf), dim=-1)
+            opd_min = smooth_min(torch.where(self.v_dic, opd, torch.inf), dim=-1)
+            opd_loss = torch.where(self.v_dic.any(dim=-1), opd_max-opd_min, torch.nan)
         else:
             raise ValueError('Invalid mode.')
         opd_loss = opd_loss * self.sys.waveweights[:, None, None, None, None] / self.sys.waveweights.sum() # [wav, sys, cfg, ang, azi]
@@ -1167,7 +1173,7 @@ class Merit(nn.Module):
         abcds = [elem.abcd(surfs[i], self.sys.wavelengths[self.sys.p_wvl][..., None]) for i, elem in enumerate(surfs[1:-1])]
         abcd = reduce((lambda x, y: torch.matmul(y, x)), abcds)
         effl = -1 / abcd[:, :, 1, 0]
-        return ((effl - target[None, ...]) ** 2).sum(dim=-1)
+        return (((effl - target[None, ...]) / target[None, ...]) ** 2).sum(dim=-1)
     
     def fno_loss(self, target):
         # paraxial ray tracing
@@ -1187,7 +1193,7 @@ class Merit(nn.Module):
     def totr_loss(self, target):
         surfs = self.sys.extract_surfs()
         if self.sys.stop_id == 1:
-            totr = torch.max(sum(elem.thick for elem in surfs[1:-1]), sum(elem.thick for elem in surfs[2:-1]))
+            totr = smooth_max(torch.stack([sum(elem.thick for elem in surfs[1:-1]), sum(elem.thick for elem in surfs[2:-1])]), dim=0)
         else:
             totr = sum(elem.thick for elem in surfs[1:-1])
         totr_res = totr - target
@@ -1202,7 +1208,7 @@ class Merit(nn.Module):
         
         r = torch.linspace(0., 1., self.sys.surf_samp) * (1 + self.sys.clear_margin)
         r = (r[None, None, :] * elem_last.radius[:, :, None])[None, :, :, None, None, :]
-        sag = elem_last.surface(r, 0).max(dim=-1)[0].squeeze(dim=[0, 3, 4])
+        sag = smooth_max(elem_last.surface(r, 0), dim=-1).squeeze(dim=[0, 3, 4])
         sag_res = (acc_thick - sag) - target
         sag_loss = torch.where(sag_res < 0., -sag_res, 0.)
         return (sag_loss ** 2).sum(dim=-1)
@@ -1222,7 +1228,7 @@ class Merit(nn.Module):
                     ref_thick = td_ratio * torch.max(elem.radius, elem_aft.radius) * 2
                 elif min_thick is not None:
                     ref_thick = min_thick
-                edge_res = (elem.thick[:, :, None] - sag + sag_aft).amin(dim=-1) - ref_thick
+                edge_res = smooth_min(elem.thick[:, :, None] - sag + sag_aft, dim=-1) - ref_thick
                 edges_res = torch.cat([edges_res, torch.where(edge_res < 0, -edge_res, 0).unsqueeze(0)])
         return (edges_res ** 2).sum(dim=[0, -1])
     
@@ -1241,7 +1247,7 @@ class Merit(nn.Module):
                     ref_thick = td_ratio * torch.min(elem.radius, elem_aft.radius) * 2
                 elif max_thick is not None:
                     ref_thick = max_thick
-                edge_res = (elem.thick[:, :, None] - sag + sag_aft).max(dim=-1)[0] - ref_thick
+                edge_res = smooth_max(elem.thick[:, :, None] - sag + sag_aft, dim=-1) - ref_thick
                 edges_res = torch.cat([edges_res, torch.where(edge_res > 0, edge_res, 0).unsqueeze(0)])
         return (edges_res ** 2).sum(dim=[0, -1])
     
@@ -1256,8 +1262,8 @@ class Merit(nn.Module):
                 r = (r[None, None, :] * torch.min(elem.radius, elem_aft.radius)[:, :, None])[None, :, :, None, None, :]
                 sag = elem.surface(r, 0).squeeze(dim=[0, 3, 4])
                 sag_aft = elem_aft.surface(r, 0).squeeze(dim=[0, 3, 4])
-                edge_res_min = (elem.thick[:, :, None] - sag + sag_aft).amin(dim=-1)
-                edge_res_max = (elem.thick[:, :, None] - sag + sag_aft).amax(dim=-1)
+                edge_res_min = smooth_min(elem.thick[:, :, None] - sag + sag_aft, dim=-1)
+                edge_res_max = smooth_max(elem.thick[:, :, None] - sag + sag_aft, dim=-1)
                 ratio = edge_res_min / edge_res_max
                 ratio_list = torch.cat([ratio_list, torch.where(ratio < max_ratio ** -1, max_ratio ** -1 - ratio, 0).unsqueeze(0)])
         return (ratio_list ** 2).sum(dim=[0, -1])
@@ -1271,7 +1277,7 @@ class Merit(nn.Module):
             r = torch.linspace(0., 1., self.sys.surf_samp) * (1 + self.sys.clear_margin)
             r = (r[None, None, :] * elem.radius[:, :, None])[None, :, :, None, None, :]
             sag = elem.surface(r, 0).squeeze(dim=[0, 3, 4]) # [sys, cfg, M]
-            ratio = (sag / dia[..., None]).abs().amax(dim=-1)
+            ratio = smooth_max(torch.sqrt((sag / dia[..., None]).square() + 1e-6), dim=-1)
             ratio_list = torch.cat([ratio_list, torch.where(ratio > max_ratio, ratio - max_ratio, 0).unsqueeze(0)])
         return (ratio_list ** 2).sum(dim=[0, -1])
     
@@ -1294,7 +1300,7 @@ class Merit(nn.Module):
                 r = (r[None, None, :] * torch.min(elem.radius, elem_aft.radius)[:, :, None])[None, :, :, None, None, :] # [wav, sys, cfg, ang, azi, M]
                 sag = elem.surface(r, 0).squeeze(dim=[0, 3, 4]) # [sys, cfg, M]
                 sag_aft = elem_aft.surface(r, 0).squeeze(dim=[0, 3, 4])
-                air_res = (acc_thick[:, :, None] - sag + sag_aft).amin(dim=-1) - target # [sys, cfg]
+                air_res = smooth_min(acc_thick[:, :, None] - sag + sag_aft, dim=-1) - target # [sys, cfg]
                 airs_res = torch.cat([airs_res, torch.where(air_res < 0, -air_res, 0).unsqueeze(0)])
         return (airs_res ** 2).sum(dim=[0, -1])
     
@@ -1308,14 +1314,14 @@ class Merit(nn.Module):
         sag = surfs[s_pre].surface(r, 0).squeeze(dim=[0, 3, 4])
         sag_aft = surfs[s_aft].surface(r, 0).squeeze(dim=[0, 3, 4])
         thick = sum(elem.thick for elem in surfs[s_pre:s_aft])
-        edge_res = (thick[:, :, None] - sag + sag_aft).amin(dim=-1)
+        edge_res = smooth_min(thick[:, :, None] - sag + sag_aft, dim=-1)
         match mode:
             case 'lt':
                 edge_loss = torch.where(edge_res > target, edge_res - target, 0.)
             case 'gt':
                 edge_loss = torch.where(edge_res < target, target - edge_res, 0.)
             case 'eq':
-                edge_loss = (edge_res - target).abs()
+                edge_loss = edge_res - target
         return (edge_loss ** 2).sum(dim=[-1])
     
     def gla_z_loss(self, z_min, ircf=False):
@@ -1327,7 +1333,7 @@ class Merit(nn.Module):
                 elem_aft = surfs[i + 2]
                 A = elem.radius * 2 * elem.roc[:, None] # [sys, cfg]
                 B = elem_aft.radius * 2 * elem_aft.roc[:, None] # [sys, cfg]
-                Z = (A - B).abs().amin(dim=-1) / 4
+                Z = smooth_min(smooth_abs(A - B, beta=1e-3), dim=-1) / 4
                 z = torch.cat([z, Z.unsqueeze(0)]) # [surf, sys]
         loss_z = torch.where(z < z_min, z_min - z, 0.)
         return (loss_z ** 2).sum(dim=[0])
@@ -1347,8 +1353,8 @@ class Merit(nn.Module):
 
             theta_1 = torch.where(self.v_dic, torch.einsum('...k, ...k -> ...', normal, d_pre), 1.) # [wav, sys, cfg, ang, azi, M]
             theta_2 = torch.where(self.v_dic, torch.einsum('...k, ...k -> ...', normal, d_aft), 1.) # [wav, sys, cfg, ang, azi, M]
-            theta_min = torch.where(theta_1 < theta_2, theta_1, theta_2) # [wav, sys, cfg, ang, azi, M]
-            loss[i] = torch.where(theta_min < k, k - theta_min, 0.).amax(dim=[0, 3, 4]) # [sys, cfg, M]
+            theta_min = smooth_min(torch.stack([theta_1, theta_2]), dim=0) # [wav, sys, cfg, ang, azi, M]
+            loss[i] = smooth_positive(k - smooth_min(theta_min, dim=[0, 3, 4])) # [sys, cfg, M]
 
         angle_loss = loss.sum(dim=-1) # [surfs, sys, cfg]
         return angle_loss.sum(dim=[0, -1])
@@ -1359,7 +1365,7 @@ class Merit(nn.Module):
         normal[..., -1] = 1.
         theta = torch.einsum('...k, ...k -> ...', normal, chief_d_img) # [wav, sys, cfg, ang, azi, 1]
         k = torch.cos(torch.deg2rad(torch.tensor(target))) if target != None else 0.
-        loss = torch.where(theta < k, k - theta, 0.).sum(dim=[0, 2, 3, 4, 5])
+        loss = smooth_positive(k - theta).sum(dim=[0, 2, 3, 4, 5])
         return loss # [sys]
     
     def angle_std_loss(self):
@@ -1374,7 +1380,7 @@ class Merit(nn.Module):
         
         d_diff = torch.where(self.v_dic[None, ...].repeat(d_surf_num, 1, 1, 1, 1, 1, 1), d_dx ** 2 + d_dy ** 2 + d_dz ** 2, 0.) # [surfs, wav, sys, cfg, ang, azi, M]
         loss_ms = d_diff.sum(dim=[0, -1]) / self.v_dic.sum(dim=-1) / d_surf_num # [wav, sys, cfg, ang, azi]
-        return loss_ms.amax(dim=[3]).sum(dim=[0, 2, 3]) # [sys]
+        return smooth_max(loss_ms, dim=3).sum(dim=[0, 2, 3]) # [sys]
     
     def surf_k_loss(self, target=None):
         surfs = self.sys.extract_surfs()[1:-1]
@@ -1390,45 +1396,54 @@ class Merit(nn.Module):
             axis[..., 2] = 1.
 
             norm = torch.where(self.v_dic, torch.einsum('...k, ...k -> ...', normal, axis), 1.) # [wav, sys, cfg, ang, azi, M]
-            loss[i] = torch.where(norm < k, k - norm, 0.).amax(dim=[0, 3, 4]) # [sys, cfg, M]
+            loss[i] = smooth_positive(k - smooth_min(norm, dim=[0, 3, 4])) # [sys, cfg, M]
             
         k_loss = loss.sum(dim=-1) # [surfs, sys, cfg]
         return k_loss.sum(dim=[0, -1])
     
     def distor_loss(self, target=None, absolute=True):
-        """ f-tan(theta) distortion
-        Args:
-            target (float, optional): Target distortion. Defaults to None.
-            absolute (bool, optional): Defaults to True.
-                If absolute is True, minimize the absolute distortion within the target range.
-                If absolute is False, minimize the distortion within 0. and the target value.
+        """Relative f-tan(theta) distortion beyond the allowed interval.
+        None means zero tolerance; absolute=False also constrains the sign.
         """
-        with torch.no_grad():
-            surfs = self.sys.extract_surfs()
-            abcds = [elem.abcd(surfs[i], self.sys.wavelengths[self.sys.p_wvl][..., None]) for i, elem in enumerate(surfs[1:-1])]
-            abcd = reduce((lambda x, y: torch.matmul(y, x)), abcds)
-            theta = torch.deg2rad(torch.tensor(1e-4) * self.sys.max_view)
-            ini = torch.stack([-self.sys.ENPP * theta[None, :], torch.ones_like(self.sys.ENPP) * theta[None, :]], dim=-1)
-            l = torch.matmul(abcd, ini.unsqueeze(-1))
-            difl = l[:, :, 0, 0] / torch.tan(theta)
-            target_x = difl[:, :, None, None] * torch.tan(torch.deg2rad(self.sys.norm_views[None, :] * self.sys.max_view[:, None]))[None, :, :, None] * torch.sin(torch.deg2rad(self.sys.azimuths))[None, None, None, :]
-            target_y = difl[:, :, None, None] * torch.tan(torch.deg2rad(self.sys.norm_views[None, :] * self.sys.max_view[:, None]))[None, :, :, None] * torch.cos(torch.deg2rad(self.sys.azimuths))[None, None, None, :]
-        
+        target = 0. if target is None else target
+        surfs = self.sys.extract_surfs()
+        abcds = [elem.abcd(surfs[i], self.sys.wavelengths[self.sys.p_wvl][..., None]) for i, elem in enumerate(surfs[1:-1])]
+        abcd = reduce((lambda x, y: torch.matmul(y, x)), abcds)
+        # Recompute the entrance pupil with gradients; System.ENPP is detached.
+        abcd_pre_s = reduce((lambda x, y: torch.matmul(y, x)), abcds[:self.sys.stop_id-1]) if self.sys.stop_id > 1 else abcd.new_tensor([[1., 0.], [0., 1.]])
+        a, b = abcd_pre_s[..., 0, 0], abcd_pre_s[..., 0, 1]
+        valid_para = torch.isfinite(a) & torch.isfinite(b) & (a.abs() > eps)
+        enpp = torch.where(valid_para, b, 0.) / torch.where(valid_para, a, 1.)
+        difl = abcd[:, :, 0, 1] - abcd[:, :, 0, 0] * enpp
+        theta = torch.deg2rad(self.sys.norm_views[None, :] * self.sys.max_view[:, None])
+        phi = torch.deg2rad(self.sys.azimuths)
+        # Preserve the full (field angle, azimuth) grid.
+        height = difl[:, :, None, None] * torch.tan(theta)[None, :, :, None]
+        target_x = height * torch.sin(phi)[None, None, None, :]
+        target_y = height * torch.cos(phi)[None, None, None, :]
+        height_sq = target_x.square() + target_y.square()
+        valid_ref = valid_para[..., None, None] & torch.isfinite(height_sq) & (height_sq > eps)
+        off_axis = (theta != 0.)[None, :, :, None].expand_as(height_sq)
+        field_valid = off_axis & valid_ref
+        target_length = torch.sqrt(torch.where(valid_ref, height_sq, 1.))
+
         chief_x = torch.gather(self.o_dic[-1, :, :, :, :, :, :, 0], dim=-1, index=self.chief_id_dic.unsqueeze(-1)).squeeze(-1)[self.sys.p_wvl] # [sys, cfg, ang, azi]
         chief_y = torch.gather(self.o_dic[-1, :, :, :, :, :, :, 1], dim=-1, index=self.chief_id_dic.unsqueeze(-1)).squeeze(-1)[self.sys.p_wvl] # [sys, cfg, ang, azi]
-        
-        target_length = torch.sqrt((target_x ** 2 + target_y ** 2).clip(min=eps))
-        chief_length = torch.sqrt((chief_x ** 2 + chief_y ** 2).clip(min=eps))
-        dist = chief_length - target_length
-        
+        chief_x = torch.where(field_valid, chief_x, 0.)
+        chief_y = torch.where(field_valid, chief_y, 0.)
+        chief_length = torch.sqrt(chief_x ** 2 + chief_y ** 2 + eps)
+        dist = (chief_length - target_length) / target_length
+
         if absolute:
-            distortion_loss = limit_var(dist, -torch.abs(target * target_length), torch.abs(target * target_length))
+            distortion_loss = limit_var(dist, -abs(target), abs(target))
         else:
-            if target > 0.:
-                distortion_loss = limit_var(dist, 0., target * target_length)
-            elif target < 0.:
-                distortion_loss = limit_var(dist, target * target_length, 0.)
-        return distortion_loss.amax(dim=[1, 2, 3]) # [sys]
+            distortion_loss = limit_var(dist, min(target, 0.), max(target, 0.))
+        distortion_loss = torch.where(field_valid, smooth_abs(distortion_loss, beta=1e-3), -torch.inf)
+        loss = smooth_max(distortion_loss, dim=[1, 2, 3])
+        loss = torch.where(off_axis.any(dim=[1, 2, 3]), loss, 0.)
+        # A degenerate off-axis reference must not bypass the constraint.
+        invalid = (off_axis & ~valid_ref).any(dim=[1, 2, 3])
+        return torch.where(invalid, torch.nan, loss) # [sys]
 
     def pupil_loss(self, ref_point_n=8):
         """
@@ -1450,9 +1465,12 @@ class Merit(nn.Module):
         z = torch.zeros_like(x) # [sys, cfg, ref_point_n]
         target = torch.stack([x, y, z], dim=-1) # [sys, cfg, ref_point_n, 3]
         
-        res = length(o_exp[:, :, :, :, :, :, None, :] - target[None, :, :, None, None, None, :, :]) # [wav, sys, cfg, ang, azi, M, ref_point_n]
-        res = torch.where(self.v_dic[..., None], res, torch.inf).amin(dim=-2).amax(dim=-1) # [wav, sys, cfg, ang, azi]
-        res = torch.where(res == torch.inf, torch.nan, res) / (self.sys.EXPD[None, :, :, None, None] / 2) # [wav, sys, cfg, ang, azi]
+        delta = o_exp[:, :, :, :, :, :, None, :] - target[None, :, :, None, None, None, :, :]
+        res = torch.sqrt(delta.square().sum(dim=-1) + eps) / (self.sys.EXPD[None, :, :, None, None, None, None] / 2)
+        res = smooth_abs(res, beta=1e-3)
+        res = smooth_min(torch.where(self.v_dic[..., None], res, torch.inf), dim=-2)
+        res = smooth_max(res, dim=-1) # [wav, sys, cfg, ang, azi]
+        res = torch.where(torch.isfinite(res), res, torch.nan) # [wav, sys, cfg, ang, azi]
         return res.sum(dim=[0, 2, 3, 4])
     
     def roc_loss(self, surf_id, sign:str):
@@ -1462,9 +1480,9 @@ class Merit(nn.Module):
         roc = self.sys.extract_surfs()[surf_id].roc # [sys]
         match sign:
             case 'p':
-                roc_loss = torch.where(roc < 0., -roc, 0.)
+                roc_loss = smooth_positive(-roc)
             case 'n':
-                roc_loss = torch.where(roc > 0., roc, 0.)
+                roc_loss = smooth_positive(roc)
         return roc_loss
     
     def seidel_loss(self):
@@ -1916,18 +1934,20 @@ class MeritZ(Merit):
                     if writer: writer.add_scalar('optics/B/totr_loss', totr_loss[valids].mean(), count)
                     loss.append(totr_loss * args[func]['weight'])
                 case 'GLA_MIN_THICK':
+                    gla_min_thick_loss = 0
                     if args[func].get('td_ratio') is not None:
-                        gla_min_thick_loss = self.gla_min_thick_loss(td_ratio=args[func]['td_ratio'])
-                    elif args[func].get('min_thick') is not None:
-                        gla_min_thick_loss = self.gla_min_thick_loss(min_thick=args[func]['min_thick'])
+                        gla_min_thick_loss = gla_min_thick_loss + self.gla_min_thick_loss(td_ratio=args[func]['td_ratio'])
+                    if args[func].get('min_thick') is not None:
+                        gla_min_thick_loss = gla_min_thick_loss + self.gla_min_thick_loss(min_thick=args[func]['min_thick'])
                     valids &= ~torch.isnan(gla_min_thick_loss)
                     if writer: writer.add_scalar('optics/B/gla_min_thick_loss', gla_min_thick_loss[valids].mean(), count)
                     loss.append(gla_min_thick_loss * args[func]['weight'])
                 case 'GLA_MAX_THICK':
+                    gla_max_thick_loss = 0
                     if args[func].get('td_ratio') is not None:
-                        gla_max_thick_loss = self.gla_max_thick_loss(td_ratio=args[func]['td_ratio'])
-                    elif args[func].get('max_thick') is not None:
-                        gla_max_thick_loss = self.gla_max_thick_loss(max_thick=args[func]['max_thick'])
+                        gla_max_thick_loss = gla_max_thick_loss + self.gla_max_thick_loss(td_ratio=args[func]['td_ratio'])
+                    if args[func].get('max_thick') is not None:
+                        gla_max_thick_loss = gla_max_thick_loss + self.gla_max_thick_loss(max_thick=args[func]['max_thick'])
                     valids &= ~torch.isnan(gla_max_thick_loss)
                     if writer: writer.add_scalar('optics/B/gla_max_thick_loss', gla_max_thick_loss[valids].mean(), count)
                     loss.append(gla_max_thick_loss * args[func]['weight'])
@@ -2030,15 +2050,15 @@ class MeritZ(Merit):
                 sag = elem.surface(r, 0).squeeze(dim=[0, 3, 4]) # [sys, cfg, M]
                 sag_aft = elem_aft.surface(r, 0).squeeze(dim=[0, 3, 4])
                 if self.sys.zoom_type[i][-1] == 'F': 
-                    air_res = (acc_thick[:, :, None] - sag + sag_aft).amin(dim=-1) - FF_target # [sys, cfg]
+                    air_res = smooth_min(acc_thick[:, :, None] - sag + sag_aft, dim=-1) - FF_target # [sys, cfg]
                 else:
                     if self.sys.zoom_type[i][0] == 'F':
-                        air_res = (acc_thick[:, :, None] - sag + sag_aft).amin(dim=-1) - FM_target # [sys, cfg]
+                        air_res = smooth_min(acc_thick[:, :, None] - sag + sag_aft, dim=-1) - FM_target # [sys, cfg]
                     else:
                         if self.sys.zoom_type[i+1][0] == 'F':
-                            air_res = (acc_thick[:, :, None] - sag + sag_aft).amin(dim=-1) - FM_target # [sys, cfg]
+                            air_res = smooth_min(acc_thick[:, :, None] - sag + sag_aft, dim=-1) - FM_target # [sys, cfg]
                         else:
-                            air_res = (acc_thick[:, :, None] - sag + sag_aft).amin(dim=-1) - MM_target # [sys, cfg]
+                            air_res = smooth_min(acc_thick[:, :, None] - sag + sag_aft, dim=-1) - MM_target # [sys, cfg]
                             
                 airs_res = torch.cat([airs_res, torch.where(air_res < 0, -air_res, 0).unsqueeze(0)])
         return (airs_res ** 2).sum(dim=[0, -1])
@@ -2058,12 +2078,15 @@ class MeritZ(Merit):
     
     def smooth_zoom_loss(self):
         sort_loss = torch.tensor([])
+        beta = 1e-3 # mm
         surfs = self.sys.extract_surfs()
         for i, _ in enumerate(surfs[1:-1]):
             if self.sys.zoom_type[i] == 'MM':
                 thick = sum(elem.thick for elem in surfs[1:-1][i:])
-                loss_des = torch.where((thick[:, 1:] - thick[:, :-1]) > 0., thick[:, 1:] - thick[:, :-1], 0.).sum(dim=-1) # [sys]
-                loss_asc = torch.where((thick[:, :-1] - thick[:, 1:]) > 0., thick[:, :-1] - thick[:, 1:], 0.).sum(dim=-1) # [sys]
-                loss = torch.where(loss_des > loss_asc, loss_asc, loss_des) # [sys]
+                loss_des = smooth_positive(thick[:, 1:] - thick[:, :-1], beta=beta).sum(dim=-1) # [sys]
+                loss_asc = smooth_positive(thick[:, :-1] - thick[:, 1:], beta=beta).sum(dim=-1) # [sys]
+                # Smooth min(loss_des, loss_asc), keeping monotonic motion at zero.
+                delta = smooth_abs(loss_des - loss_asc, beta=beta)
+                loss = smooth_positive((loss_des + loss_asc - delta - beta / 2) / 2, beta=beta) # [sys]
                 sort_loss = torch.cat([sort_loss, loss.unsqueeze(0)]) # [surfs, sys]
         return sort_loss.sum(dim=0) # [sys]

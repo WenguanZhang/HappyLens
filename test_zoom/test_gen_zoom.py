@@ -103,8 +103,9 @@ def main(args, seed, save_path):
                 torch.optim.lr_scheduler.LinearLR(optimizer, start_factor=0.01, end_factor=1., total_iters=epochs//2),
                 torch.optim.lr_scheduler.LinearLR(optimizer, start_factor=1., end_factor=0.1, total_iters=epochs//2),
             ], milestones=[epochs//2])
-            merit.random_flip_elements(args.MERIT, mask=valid, p_fix=args.P_FIX, top_pick=args.TOP_PICK)
+            merit.random_perturb_thick(args.MERIT, mask=valid, p_fix=args.P_FIX, top_pick=args.TOP_PICK)
             merit.random_change_materials(args.MERIT, mask=valid, p_fix=args.P_FIX, top_pick=args.TOP_PICK)
+            merit.random_flip_elements(args.MERIT, mask=valid, p_fix=args.P_FIX, top_pick=args.TOP_PICK)
         else:
             scheduler = torch.optim.lr_scheduler.ConstantLR(optimizer)
 

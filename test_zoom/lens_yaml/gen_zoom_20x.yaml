@@ -48,14 +48,14 @@ MERIT: {
   # A
   EFL: {target: [5.0, 25.0, 50.0, 75.0, 100.0], weight: 50.},
   FNO: {target: [3., 3.63, 4.42, 5.21, 6.], weight: 1.},
-  SPOT: {ref: 'chief', k: 1., weight: 20.},
+  SPOT: {ref: 'ideal', k: 1., weight: 20.},
   # WAVEFRONT: {mode: 'tv', weight: 0.01},
   DISTOR: {target: 0.1, weight: 20.},
   LATERAL: {ref: 'rms', weight: 0.4},
   # B
   BFL: {target: 10., weight: 1.},
   TOTR: {target: 150., weight: 1.},
-  GLA_MIN_THICK: {min_thick: 0.5, td_ratio: 0.1, weight: 200.},
+  GLA_MIN_THICK: {min_thick: 1.0, td_ratio: 0.04, weight: 200.},
   GLA_MAX_THICK: {max_thick: 10.0, td_ratio: 1.0, weight: 1.},
   AIR_THICK: {FF_target: 0.5, FM_target: 1.0, MM_target: 2.5, weight: 200.},
   SURF_K: {target: 45., weight: 5.},
@@ -84,7 +84,7 @@ EPOCH: [2000, 500, 500, 500, 500, 500, 500, 500, 500, 500, 500, 500, 500, 500, 5
 MAX_STATE_T: 2000
 ADD_PARAM: [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null]
 OPT_MAT_STAGE: [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0]
-LR_OPT: 1.e-2
+LR_OPT: 2.e-3
 LR_SCALE: 10.
 DROPOUT: 0.1
 

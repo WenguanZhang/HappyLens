@@ -55,7 +55,7 @@ class Delano(nn.Module):
             self.dist_min = dist_min / self.scale
         
         # optimization
-        self.tol_iters = 1000
+        self.tol_iters = 77
         self.ins_tol_iters = 20
         self.iters = 0
 
@@ -475,33 +475,38 @@ class Delano(nn.Module):
         p = tqdm()
         # optimizer initialization
         optimizer = torch.optim.Adam([self._y, self._ybar], lr=lr)
+        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, factor=0.5, min_lr=lr*0.01)
         # ======================================================== #
         # Merit y, ybar, C, MU
         # ======================================================== #
         loss_min = torch.ones(self.sys_num) * 1e10
         _y_m, _ybar_m = torch.zeros_like(self._y), torch.zeros_like(self._ybar)
         iters_tol = 1
-        while iters_tol < self.tol_iters:
+        while iters_tol <= self.tol_iters:
             optimizer.zero_grad()
             self.iters += 1
             
             loss = self.fitness()
-            p.set_description(f'min loss: {loss.min().item():.6f}, max loss: {loss.max().item():.6f}')
             
             valid = (loss_min > loss)
-            loss_min[valid] = loss[valid]
-            _y_m[valid], _ybar_m[valid] = self._y.detach().clone()[valid], self._ybar.detach().clone()[valid]
+            loss_min[valid] = loss.detach()[valid]
+            _y_m[valid], _ybar_m[valid] = self._y.detach()[valid], self._ybar.detach()[valid]
+            min_loss = loss_min.min().item()
+            p.set_description(f'min loss: {min_loss:.6f}, max loss: {loss_min.max().item():.6f}')
             
-            iters_tol = 1 if loss.min() <= loss_min.min() else iters_tol + 1
+            # Use the scheduler's improvement threshold for early stopping.
+            improved = min_loss < scheduler.best * (1 - scheduler.threshold)
+            iters_tol = 1 if improved else iters_tol + 1
             loss.sum().backward()
             optimizer.step()
+            scheduler.step(min_loss)
             self.update_y_ybar()
             self.generate()
             
         # ======================================================== #
         # Judge valid system and choose the best id
         # ======================================================== #
-        self._y.data, self._ybar.data = _y_m, _ybar_m
+        self._y.data, self._ybar.data = _y_m.clone(), _ybar_m.clone()
         self.update_y_ybar()
         self.generate()
         

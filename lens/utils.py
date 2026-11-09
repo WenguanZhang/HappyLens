@@ -24,6 +24,29 @@ def set_random_seed(seed=0):
 
 eps = 1e-16
 
+def smooth_abs(var, beta=1e-3):
+    """Elementwise Smooth L1 with a quadratic transition of width beta."""
+    return torch.nn.functional.smooth_l1_loss(var, torch.zeros_like(var), beta=beta, reduction='none')
+
+def smooth_positive(var, beta=1e-3):
+    """One-sided Smooth L1; zero when the constraint is satisfied."""
+    return smooth_abs(var.clamp_min(0.), beta=beta)
+
+def smooth_max(var, dim=-1, keepdim=False, beta=1e-3):
+    """Smooth upper bound with invalid-group protection."""
+    if beta == 0:
+        return var.amax(dim=dim, keepdim=keepdim)
+    maximum = var.amax(dim=dim, keepdim=True).detach()
+    valid = torch.isfinite(maximum)
+    values = torch.where(valid, var, 0.)
+    result = beta * torch.logsumexp(values/beta, dim=dim, keepdim=True)
+    result = torch.where(valid, result, maximum)
+    return result if keepdim else result.squeeze(dim)
+
+def smooth_min(var, dim=-1, keepdim=False, beta=1e-3):
+    """Smooth lower bound computed through smooth_max."""
+    return -smooth_max(-var, dim=dim, keepdim=keepdim, beta=beta)
+
 def clip_gradient(optimizer, grad_clip):
     """
     Clips gradients computed during backpropagation to avoid explosion of gradients.
