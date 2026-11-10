@@ -1,0 +1,83 @@
+DEVICE: "cuda:1"
+SEED: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+
+MATERIAL_CATALOG:
+  GLASS: schott
+  PLASTIC: plastic
+
+WAVELENGTHS: [480.e-6, 550.e-6, 650.e-6]
+WAVEWEIGHTS: [1., 1., 1.]
+P_WAVE: 1
+
+# 1/1.8-inch type: approximately 7.2 x 5.4 mm, image semi-diagonal 4.5 mm.
+# Diagonal half-field angles: atan(image semi-diagonal / focal length).
+MAX_VIEW: [32.73522627, 7.32640666, 2.45403167, 1.22757883]
+NORM_VIEWS: [0., 0.5, 0.707, 1.0]
+VIG: null
+AZIMUTHS: [0.]
+
+GROUP_STRUCTURE: 'FMMF'
+GROUP_TYPE: 'DSS|SDS|DS|SSSS'
+SURF_TYPE: 'SSS|SSS|SS|SSSS' # S: Sphere, A: Asphere, Q: Qcon
+MAT_TYPE: 'RRR|RRR|RR|RRRR' # K: Crown, F: Flint, M: Mix, R: Random
+MAT_CATA: 'GGG|GGG|GG|GGGG' # G: Glass, P: Plastic
+
+DELANO_SYS: 50000
+LR_DELANO: 1.e-3
+STOP_POS: 2
+STOP_FIX: True
+
+SYS_NUM: 150
+CFG_NUM: 4
+FIX_RADIUS_SURF: []
+MAX_RADIUS: null
+PRE_SAMP: 50
+SAMP_METHOD: 'ring'
+SAMP_RAYS: 3
+
+MERIT: {
+  # A
+  EFL: {target: [7.0, 35.0, 105.0, 210.0], weight: 50.},
+  FNO: {target: [2.5, 3.0, 4.0, 4.5], weight: 1.},
+  SPOT: {ref: 'ideal', k: 1., weight: 20.},
+  # WAVEFRONT: {mode: 'tv', weight: 0.01},
+  DISTOR: {target: 0.1, weight: 20.},
+  LATERAL: {ref: 'rms', weight: 0.4},
+  # B
+  BFL: {target: 10., weight: 1.}, # Initial back-focus target; not specified by sensor format.
+  TOTR: {target: 140., weight: 1.},
+  GLA_MIN_THICK: {min_thick: 1.0, td_ratio: 0.04, weight: 200.},
+  GLA_MAX_THICK: {max_thick: 10.0, td_ratio: 1.0, weight: 1.},
+  AIR_THICK: {FF_target: 0.5, FM_target: 1.0, MM_target: 2.5, weight: 200.},
+  SURF_K: {target: 45., weight: 5.},
+  GLA_Z: {z_min: 0.15, weight: 200.},
+  FIX_LENS: {weight: 5.},
+  SMOOTH_ZOOM: {weight: 5.},
+  # C
+  ANGLE: {target: 60., weight: 1.},
+}
+
+P_FIX: 0.1
+TOP_PICK: False
+
+HYBRID_MODE: 'auto'
+
+SHADE: {
+  iters: 500,
+  F: 0.5,
+  CR: 0.5,
+  c: 10,
+  p: 0.1
+}
+PRE_OPT: False
+
+EPOCH: [2000, 1500, 1000, 500, 500, 500, 500, 500, 500, 500, 500, 500, 500, 500, 500, 500, 500, 500]
+MAX_STATE_T: 5000
+ADD_PARAM: [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null]
+OPT_MAT_STAGE: [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0]
+LR_OPT: 2.e-3
+LR_SCALE: 10.
+DROPOUT: 0.1
+
+OPTIC_UPDATE_FREQ: 10
+SAVE_FREQ: 100

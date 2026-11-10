@@ -37,7 +37,7 @@ MAT_CATA: 'GG|GG|GG|G' # G: Glass, P: Plastic
 # MAT_CATA: 'GG|GG|GG|G' # G: Glass, P: Plastic
 
 DELANO_SYS: 50000
-LR_DELANO: 1.e-4
+LR_DELANO: 1.e-3
 STOP_POS: 2
 STOP_FIX: True
 

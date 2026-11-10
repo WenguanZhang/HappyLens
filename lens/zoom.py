@@ -47,7 +47,7 @@ class Zoom(nn.Module):
         self.y_ybar_init()
         self.generate()
         
-        self.fst_tol_iters = 44
+        self.fst_tol_iters = 33
         self.ins_tol_iters = 100
         self.iters = 0
         self.loss_SA = []
@@ -457,12 +457,14 @@ class Zoom(nn.Module):
             pbar.set_postfix_str(f'step: 1/2, min loss: {min_loss}, max loss: {loss_min.max().item()}')
             self.loss_Ae.append(min_loss)
 
-            improved = min_loss < scheduler.best * (1 - scheduler.threshold)
+            # Monitor the best 1% so one stalled candidate cannot freeze the batch.
+            metric = loss_min.topk(max(1, self.sys_num // 100), largest=False).values.mean().item()
+            improved = metric < scheduler.best * (1 - scheduler.threshold)
             iters_tol = 1 if improved else iters_tol + 1
             
             loss.sum().backward()
             optimizer.step()
-            scheduler.step(min_loss)
+            scheduler.step(metric)
             self.update_y_ybar()
             self.generate()
             
@@ -488,12 +490,13 @@ class Zoom(nn.Module):
             pbar.set_postfix_str(f'step: 2/2, min loss: {min_loss}, max loss: {loss_min.max().item()}')
             self.loss_As.append(min_loss)
 
-            improved = min_loss < scheduler.best * (1 - scheduler.threshold)
+            metric = loss_min.topk(max(1, self.sys_num // 100), largest=False).values.mean().item()
+            improved = metric < scheduler.best * (1 - scheduler.threshold)
             iters_tol = 1 if improved else iters_tol + 1
             
             loss.sum().backward()
             optimizer.step()
-            scheduler.step(min_loss)
+            scheduler.step(metric)
             self.update_y_ybar()
             self.generate()
         

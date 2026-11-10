@@ -55,7 +55,7 @@ class Delano(nn.Module):
             self.dist_min = dist_min / self.scale
         
         # optimization
-        self.tol_iters = 77
+        self.tol_iters = 66
         self.ins_tol_iters = 20
         self.iters = 0
 
@@ -494,12 +494,13 @@ class Delano(nn.Module):
             min_loss = loss_min.min().item()
             p.set_description(f'min loss: {min_loss:.6f}, max loss: {loss_min.max().item():.6f}')
             
-            # Use the scheduler's improvement threshold for early stopping.
-            improved = min_loss < scheduler.best * (1 - scheduler.threshold)
+            # Monitor the best 1% so one stalled candidate cannot freeze the batch.
+            metric = loss_min.topk(max(1, self.sys_num // 100), largest=False).values.mean().item()
+            improved = metric < scheduler.best * (1 - scheduler.threshold)
             iters_tol = 1 if improved else iters_tol + 1
             loss.sum().backward()
             optimizer.step()
-            scheduler.step(min_loss)
+            scheduler.step(metric)
             self.update_y_ybar()
             self.generate()
             
