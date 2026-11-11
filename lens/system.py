@@ -8,7 +8,7 @@ from einops import rearrange
 from .surface import OBJECT, IMAGE, Sphere, Asphere, Qcon, Qbfs, Binary2, Coordinate, Dummy, PACKAGE
 from .delano import Delano
 from.zoom import Zoom
-from .utils import fit_get_mat_id, glass_catalog, glass_catalog_params, plastic_catalog, plastic_catalog_params, list_convert, Ray, pupil_distribution, normalize, eps, length
+from .utils import fit_get_mat_id, glass_catalog, glass_catalog_params, plastic_catalog, plastic_catalog_params, list_convert, Ray, pupil_distribution, normalize, eps, length, smooth_min
 
 class System(nn.Module):
     def __init__(self, wavelengths, p_wvl, max_view, waveweights=None, sys_num=1, cfg_num=1, pre_samp:int=None, stop_max_samp_ang:float=45., samp_method='square', fix_radius_surf:list=[], norm_views=None, azimuths=None, vig=None, **kwargs):
@@ -66,6 +66,9 @@ class System(nn.Module):
             self.update()
             for i in fix_radius_surf: self.system[i].fix_radius = True
             self.samp_margin = 0.
+
+        zoom_type = getattr(self, 'zoom_type', None)
+        self.extension = bool(zoom_type and zoom_type[0] and zoom_type[0][0] == 'M')
 
     def read_sys(self, file):
         with open(file) as file:
@@ -972,6 +975,7 @@ class System(nn.Module):
         gla_min_loss = torch.where(gla_thick < merit['GLA_MIN_THICK']['min_thick'], merit['GLA_MIN_THICK']['min_thick'] - gla_thick, torch.zeros_like(gla_thick)).amax(dim=[0, -1])
         gla_max_loss = torch.where(gla_thick > merit['GLA_MAX_THICK']['max_thick'], gla_thick - merit['GLA_MAX_THICK']['max_thick'], torch.zeros_like(gla_thick)).amax(dim=[0, -1])
         bfl_loss = torch.where(BFL < merit['BFL']['target'], merit['BFL']['target'] - BFL, torch.zeros_like(BFL)).amax(dim=-1)
+        ttl = smooth_min(ttl + BFL, dim=-1, keepdim=True)
         totr_loss = torch.where(ttl > merit['TOTR']['target'] * 1.333, ttl - merit['TOTR']['target'] * 1.333, torch.zeros_like(ttl)).amax(dim=-1)
         
         loss_roc = torch.where(c[1:-1, :, None].abs() > (R[0:-2] ** -1) * 0.333, c[1:-1, :, None].abs() - 0.333 * (R[0:-2] ** -1), torch.zeros_like(c[1:-1, :, None])).amax(dim=[0, -1])
@@ -1628,8 +1632,8 @@ class System(nn.Module):
         params: "thick"
         """
         def average_gradients_hook(grad):
-            grad[:] = grad.mean(dim=-1, keepdim=True)
-            return grad
+            # A summed loss may share this gradient buffer with movable gaps.
+            return grad.mean(dim=-1, keepdim=True).expand_as(grad)
         
         if param_name in self.extract_surfs()[surf_id].state_dict().keys():
             dict(self.extract_surfs()[surf_id].named_parameters())[param_name].register_hook(average_gradients_hook)

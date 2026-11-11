@@ -19,7 +19,7 @@ VIG: {
 }
 AZIMUTHS: [0.]
 
-GROUP_STRUCTURE: 'FMMF'
+GROUP_STRUCTURE: 'MMMF'
 
 GROUP_TYPE: 'DS|DS|DS|S' # S: siglets, D: doublets
 SURF_TYPE: 'SS|SS|SS|A' # S: Sphere, A: Asphere, Q: Qcon
@@ -59,7 +59,8 @@ MERIT: {
   LATERAL: {ref: 'rms', weight: 0.4},
   # B
   BFL: {target: 10., weight: 1.},
-  TOTR: {target: 50., weight: 1.},
+  TOTR: {target: 30., weight: 1.}, # shortest total track, mm
+  EXTENSION: {min: 5., max: 20., weight: 5.}, # mm, wide to tele
   GLA_MIN_THICK: {min_thick: 1.0, td_ratio: 0.04, weight: 200.},
   GLA_MAX_THICK: {max_thick: 10.0, td_ratio: 1.0, weight: 1.},
   AIR_THICK: {FF_target: 0.2, FM_target: 0.5, MM_target: 1., weight: 200.},

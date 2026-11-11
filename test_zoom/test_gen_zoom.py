@@ -34,7 +34,8 @@ def main(args, seed, save_path):
                      FF_min_dist=args.MERIT['AIR_THICK']['FF_target'],
                      FM_min_dist=args.MERIT['AIR_THICK']['FM_target'],
                      MM_min_dist=args.MERIT['AIR_THICK']['MM_target'],
-                     stop_pos=args.STOP_POS, stop_fix=args.STOP_FIX)
+                     stop_pos=args.STOP_POS, stop_fix=args.STOP_FIX,
+                     extension_range=args.MERIT.get('EXTENSION'))
     zoom.optimize_SA()
     zoom.optimize(args.LR_DELANO, result_folder)
 

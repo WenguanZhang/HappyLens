@@ -1196,6 +1196,8 @@ class Merit(nn.Module):
             totr = smooth_max(torch.stack([sum(elem.thick for elem in surfs[1:-1]), sum(elem.thick for elem in surfs[2:-1])]), dim=0)
         else:
             totr = sum(elem.thick for elem in surfs[1:-1])
+        if self.sys.extension:
+            totr = smooth_min(totr, dim=-1, keepdim=True)
         totr_res = totr - target
         totr_loss = torch.where(totr_res > 0., totr_res, 0.)
         return (totr_loss ** 2).sum(dim=-1)
@@ -1971,6 +1973,11 @@ class MeritZ(Merit):
                     valids &= ~torch.isnan(fix_lens_loss)
                     if writer: writer.add_scalar('optics/B/fix_lens_loss', fix_lens_loss[valids].mean(), count)
                     loss.append(fix_lens_loss * args[func]['weight'])
+                case 'EXTENSION':
+                    extension_loss = self.extension_loss(args[func]['min'], args[func].get('max'))
+                    valids &= ~torch.isnan(extension_loss)
+                    if writer: writer.add_scalar('optics/B/extension_loss', extension_loss[valids].mean(), count)
+                    loss.append(extension_loss * args[func]['weight'])
                 case 'SMOOTH_ZOOM':
                     smooth_zoom_loss = self.smooth_zoom_loss()
                     valids &= ~torch.isnan(smooth_zoom_loss)
@@ -2063,6 +2070,16 @@ class MeritZ(Merit):
                 airs_res = torch.cat([airs_res, torch.where(air_res < 0, -air_res, 0).unsqueeze(0)])
         return (airs_res ** 2).sum(dim=[0, -1])
     
+    def extension_loss(self, min_extension, max_extension=None):
+        """Constrain wide-to-tele extension in mm."""
+        surfs = self.sys.extract_surfs()
+        totr = sum(elem.thick for elem in surfs[1:-1])
+        extension = totr[:, -1] - totr[:, 0]
+        loss = smooth_positive(min_extension - extension)
+        if max_extension is not None:
+            loss = loss + smooth_positive(extension - max_extension)
+        return loss + smooth_positive(totr[:, :-1] - totr[:, 1:]).sum(dim=-1)
+
     def fix_lens_loss(self):
         fix_lens = torch.tensor([])
         surfs = self.sys.extract_surfs()

@@ -5,12 +5,12 @@ from tqdm import tqdm
 import math
 
 from .surface import Sphere, OBJECT, IMAGE, Asphere, Qcon, Qbfs
-from .utils import glass_catalog, glass_catalog_params, plastic_catalog, plastic_catalog_params, nv_to_g1_g2, generate_normalized_numbers, fit_get_mat_id, limit_var, smooth_abs
+from .utils import glass_catalog, glass_catalog_params, plastic_catalog, plastic_catalog_params, nv_to_g1_g2, generate_normalized_numbers, fit_get_mat_id, limit_var, smooth_abs, smooth_positive, smooth_min
 
 class Zoom(nn.Module):
     
     def __init__(self, group_structure:str, group_type:str, sys_num:int, target_fov:list, target_effl:list, target_fno:list,
-                 target_totr, target_bfl, FF_min_dist, FM_min_dist, MM_min_dist, stop_pos, stop_fix:bool=True):
+                 target_totr, target_bfl, FF_min_dist, FM_min_dist, MM_min_dist, stop_pos, stop_fix:bool=True, extension_range=None):
         super(Zoom, self).__init__()
         # group_structure: e.g. FMFMF
         # F - Fixed
@@ -20,6 +20,12 @@ class Zoom(nn.Module):
         self.group_type = group_type.split('|')
         self.group_num = len(group_structure)
         self.sys_num = sys_num
+        
+        self.extension = (self.group_structure[0] == 'M')
+        self.extension_range = extension_range
+        if extension_range is not None:
+            if extension_range['min'] < 0 or (extension_range.get('max') is not None and extension_range['max'] < extension_range['min']):
+                raise ValueError('Extension requires 0 <= min <= max')
         
         self.target_fov = torch.tensor(target_fov) # [cfg]
         self.target_effl = torch.tensor(target_effl) # [cfg]
@@ -238,7 +244,9 @@ class Zoom(nn.Module):
             
             # calculate radius of each elements
             r = self.sub_radius[sys_id, cfg, :].cpu().detach().numpy() # [subs]
-            z = [0]
+            # Align the image planes when the front group moves.
+            shift = (self.sub_dist[sys_id].sum(dim=-1).max() - self.sub_dist[sys_id, cfg].sum()).detach() if self.extension else 0.
+            z = [float(shift)]
             
             ######################################## step 5: draw the 2D setup of the system ########################################
             for i in range(self.group_num):
@@ -263,7 +271,7 @@ class Zoom(nn.Module):
             ax.set_aspect(1)
             
             # draw stop
-            z_s = (self.sub_dist[sys_id, cfg, :self.stop_pos].sum()).cpu().detach().numpy()
+            z_s = z[0] + (self.sub_dist[sys_id, cfg, :self.stop_pos].sum()).cpu().detach().numpy()
             r_s = self.sub_radius[sys_id, cfg, self.stop_pos].cpu().detach().numpy()
             ax.plot([z_s-w, z_s+w], [r_s, r_s], color='r')
             ax.plot([z_s-w, z_s+w], [-r_s, -r_s], color='r')
@@ -363,15 +371,30 @@ class Zoom(nn.Module):
         return loss # [sys]
     
     def merit_totr(self):
-        loss = torch.where(self.sub_dist.sum(dim=-1) > self.target_totr, self.sub_dist.sum(dim=-1) - self.target_totr, 0.) # [sys, cfg]
+        totr = self.sub_dist.sum(dim=-1)
+        if self.extension:
+            totr = smooth_min(totr, dim=-1, keepdim=True, beta=1e-3/self.scale)
+        loss = torch.where(totr > self.target_totr, totr - self.target_totr, 0.) # [sys, cfg]
         return loss.sum(dim=-1)
+
+    def merit_extension(self):
+        """Constrain wide-to-tele extension in mm, then normalize the merit."""
+        if self.extension_range is None:
+            return 0.
+        totr = self.sub_dist.sum(dim=-1) * self.scale
+        extension = totr[:, -1] - totr[:, 0]
+        loss = smooth_positive(self.extension_range['min'] - extension)
+        if self.extension_range.get('max') is not None:
+            loss = loss + smooth_positive(extension - self.extension_range['max'])
+        loss = loss + smooth_positive(totr[:, :-1] - totr[:, 1:]).sum(dim=-1)
+        return loss / self.scale
     
     def fitness_A(self):
-        loss = self.merit_dist_diff() + self.merit_pow_diff() + self.merit_dist() + self.merit_smooth_zoom() + self.merit_angle() + self.merit_totr() + self.merit_fno() + self.merit_radius_diff()
+        loss = self.merit_dist_diff() + self.merit_pow_diff() + self.merit_dist() + self.merit_extension() + self.merit_smooth_zoom() + self.merit_angle() + self.merit_totr() + self.merit_fno() + self.merit_radius_diff()
         return loss
     
     def fitness_B(self):
-        loss = (self.merit_dist_diff() + 1) * (self.merit_pow_diff() + 1) * (self.merit_dist() + 1) * (self.merit_smooth_zoom() + 1) * (self.merit_angle() + self.merit_totr() + self.merit_fno() + self.merit_radius_diff())
+        loss = (self.merit_dist_diff() + 1) * (self.merit_pow_diff() + 1) * (self.merit_dist() + self.merit_extension() + 1) * (self.merit_smooth_zoom() + 1) * (self.merit_angle() + self.merit_totr() + self.merit_fno() + self.merit_radius_diff())
         return loss
     
     def optimize_SA(self):
