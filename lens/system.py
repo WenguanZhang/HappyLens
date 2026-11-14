@@ -1113,10 +1113,16 @@ class System(nn.Module):
             o = torch.cat([o1, o2], dim=3) # [sys, cfg, ang, 2, M, 3]
             ray = Ray(o, d.repeat(1, 1, 1, 2, 1, 1), wavelengths)
             ray = surfs[0].propagate(ray)
+            # First-hit geometry is shared across wavelengths before refraction.
             for i, elem in enumerate(surfs[1:self.stop_id]):
-                _, _, ray = elem.propagate(ray, surfs[i], radius_flag=False)
-            _, _, ray = surfs[self.stop_id].propagate(ray, surfs[self.stop_id-1], radius_flag=True)
-            _oy = torch.where(ray.valid.sum(dim=0, dtype=bool), _o1y, torch.nan)[:, :, :, 0, :] # [sys, cfg, ang, M]
+                hit, _, ray = elem.propagate(ray, surfs[i], radius_flag=False)
+                if i == 0:
+                    first_oy = hit[0, ..., 1]
+            stop_hit, _, ray = surfs[self.stop_id].propagate(ray, surfs[self.stop_id-1], radius_flag=True)
+            if self.stop_id == 1:
+                first_oy = stop_hit[0, ..., 1]
+            # Bound actual first-surface hits, not the points used to construct each ray.
+            _oy = torch.where(ray.valid.sum(dim=0, dtype=bool), first_oy, torch.nan)[:, :, :, 0, :] # [sys, cfg, ang, M]
             _ox = torch.where(ray.valid.sum(dim=0, dtype=bool), _o2x, torch.nan)[:, :, :, 1, :] # [sys, cfg, ang, M]
             
             oy_min = torch.nan_to_num(_oy, nan=torch.inf).amin(dim=-1) - delta # [sys, cfg, ang]
@@ -1160,11 +1166,16 @@ class System(nn.Module):
             ray = Ray(obj_o.expand_as(o), d, wavelengths)
             
             ray = surfs[0].propagate(ray)
+            # Divergent rays can hit a different first-surface point in both coordinates.
             for i, elem in enumerate(surfs[1:self.stop_id]):
-                _, _, ray = elem.propagate(ray, surfs[i], radius_flag=False)
-            _, _, ray = surfs[self.stop_id].propagate(ray, surfs[self.stop_id-1], radius_flag=True)
-            _oy = torch.where(ray.valid.sum(dim=0, dtype=bool), _o1y, torch.nan)[:, :, :, 0, :] # [sys, cfg, ang, M]
-            _ox = torch.where(ray.valid.sum(dim=0, dtype=bool), _o2x, torch.nan)[:, :, :, 1, :] # [sys, cfg, ang, M]
+                hit, _, ray = elem.propagate(ray, surfs[i], radius_flag=False)
+                if i == 0:
+                    first_hit = hit[0, ..., :2]
+            stop_hit, _, ray = surfs[self.stop_id].propagate(ray, surfs[self.stop_id-1], radius_flag=True)
+            if self.stop_id == 1:
+                first_hit = stop_hit[0, ..., :2]
+            _oy = torch.where(ray.valid.sum(dim=0, dtype=bool), first_hit[..., 1], torch.nan)[:, :, :, 0, :] # [sys, cfg, ang, M]
+            _ox = torch.where(ray.valid.sum(dim=0, dtype=bool), first_hit[..., 0], torch.nan)[:, :, :, 1, :] # [sys, cfg, ang, M]
             
             obj_o = torch.stack([obj_x, obj_y, obj_z], dim=-1) # [sys, cfg, ang, 3]
             
