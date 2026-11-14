@@ -1006,9 +1006,6 @@ class System(nn.Module):
         
     ######################################### Ray Tracing #########################################
     def propagate(self, ray:Ray, radius_flag=True, record=False):
-        # for chief ray calculation
-        o_pupil = ray.o + ray.d * (self.ENPP[None, :, :, None, None, None] / ray.d[..., 2])[..., None]
-        
         # propagate to the first surface
         ray = self.system[0].propagate(ray)
         
@@ -1037,13 +1034,11 @@ class System(nn.Module):
         
         if self.vig_chief:
             with torch.no_grad():
-                ox = torch.where(ray.valid, o_pupil[..., 0], torch.nan)
-                oy = torch.where(ray.valid, o_pupil[..., 1], torch.nan)
-                ox_mean_diff = ox - torch.nanmean(ox, dim=-1, keepdim=True)
-                oy_mean_diff = oy - torch.nanmean(oy, dim=-1, keepdim=True)
-                diffs = torch.sqrt(ox_mean_diff**2 + oy_mean_diff**2)
-                # if all rays are invalid, set chief_id to 0
-                ray.chief_id = torch.argmin(torch.nan_to_num(diffs, nan=torch.inf), dim=-1)
+                # Select the valid sampled ray closest to the stop center.
+                r2 = o[self.stop_id, ..., :2].square().sum(-1)
+                score = torch.where(ray.valid & torch.isfinite(r2), r2, torch.inf)
+                # All-invalid bundles retain index 0 and their invalid masks.
+                ray.chief_id = score.argmin(dim=-1)
                 
         if record:
             return ray, o, d
@@ -1085,7 +1080,7 @@ class System(nn.Module):
         d = torch.stack([dx, dy, dz], dim=-1)[None, None, None, None, :, :].repeat(self.sys_num, self.cfg_num, 1, 1, 1, 1) # [sys, cfg, 1, 1, M, 3]
         ray = Ray(o, d, wavelengths)
         for i in range(self.stop_id, 1, -1):
-            _, _, ray = surfs[i].reverse_propagate(ray, surfs[i-1], radius_flag=False)
+            _, _, ray = surfs[i].reverse_propagate(ray, surfs[i-1], radius_flag=True)
         ray = surfs[1].intersect(ray, mode='reverse')
         ray = surfs[1].refract(ray, surfs[0], mode='reverse')
         
@@ -1142,13 +1137,13 @@ class System(nn.Module):
             obj_y = -obj_d[:, :, None] * torch.tan(views)[None, :, :] # [sys, cfg, ang]
             obj_x = torch.zeros_like(obj_y)
             obj_z = -torch.tensor(surfs[0].distance)[None, :, None] * torch.ones_like(obj_y) # [sys, cfg, ang]
-            obj_o = torch.stack([obj_x, obj_y, obj_z], dim=-1)[:, :, :, None, None, :].repeat(1, 1, 1, 1, sampling, 1) # [sys, cfg, ang, 1, M, 3]
+            obj_o = torch.stack([obj_x, obj_y, obj_z], dim=-1)[:, :, :, None, None, :] # [sys, cfg, ang, 1, 1, 3]
             
             ox_ = torch.zeros_like(oy_) # [sys, cfg, ang, N]
             oz_ = surfs[1].surface(ox_[None, :, :, :, None, :], oy_[None, :, :, :, None, :])[0, :, :, :, 0, :] # [sys, cfg, ang, N]
             fst_o = torch.stack([ox_, oy_, oz_], dim=-1)[:, :, :, None, :, :] # [sys, cfg, ang, 1, N, 3]
             
-            dy = normalize(fst_o - obj_o.repeat(1, 1, 1, 1, len(wavelengths), 1))[:, :, :, 0, :, 1] # [sys, cfg, ang, N]
+            dy = normalize(fst_o - obj_o)[:, :, :, 0, :, 1] # [sys, cfg, ang, N]
             fst_oy = torch.gather(oy_, dim=-1, index=torch.argmin(torch.abs(dy - dy_).nan_to_num(nan=torch.inf), dim=-1, keepdim=True))[..., 0] # [sys, cfg, ang]
             
             _o1y = samp_range[:, :, :, None, None] * _xy[None, None, None, None, :] + fst_oy[:, :, :, None, None] # [sys, cfg, ang, 1, M]
@@ -1161,8 +1156,8 @@ class System(nn.Module):
             o2 = torch.stack([_o2x, _o2y, _o2z], dim=-1) # [sys, cfg, ang, 1, M, 3]
             
             o = torch.cat([o1, o2], dim=3) # [sys, cfg, ang, 2, M, 3]
-            d = normalize(o - obj_o.repeat(1, 1, 1, 2, 1, 1)) # [sys, cfg, ang, 2, M, 3]
-            ray = Ray(obj_o.repeat(1, 1, 1, 2, 1, 1), d, wavelengths)
+            d = normalize(o - obj_o) # [sys, cfg, ang, 2, M, 3]
+            ray = Ray(obj_o.expand_as(o), d, wavelengths)
             
             ray = surfs[0].propagate(ray)
             for i, elem in enumerate(surfs[1:self.stop_id]):

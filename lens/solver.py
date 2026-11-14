@@ -17,11 +17,46 @@ class Solver(object):
         """
         mode: 'forward' or 'reverse'
         """
-        if self.METHOD == 'newton':
-            ray = self.newton(surf, ray, mode)
+        if surf.is_sphere():
+            return self.analytic(surf, ray, mode)
+        elif self.METHOD == 'newton':
+            return self.newton(surf, ray, mode)
         else:
             raise Warning('METHOD does not exist!')
-        
+
+    def analytic(self, surf, ray:Ray, mode):
+        """Intersect the vertex branch of a conic, including spheres and planes.
+
+        At large fields the vertex plane can lie outside the clear aperture;
+        an analytic intersection avoids an unreliable Newton starting point.
+        Negative travel is allowed because rays use local vertex planes.
+        """
+        curvature = surf.roc[None, :, None, None, None, None]
+        conic = surf.conic[None, :, None, None, None, None]
+        if mode == 'reverse':
+            curvature = -curvature
+        origin, direction = ray.o, ray.d
+        # c(x² + y²) + (1 + k)cz² - 2z = 0 along o + t d.
+        a = curvature * (direction.square().sum(-1) + conic * direction[..., 2].square())
+        b = 2 * (curvature * ((origin * direction).sum(-1) + conic * origin[..., 2] * direction[..., 2]) - direction[..., 2])
+        c = curvature * (origin.square().sum(-1) + conic * origin[..., 2].square()) - 2 * origin[..., 2]
+        discriminant = b.square() - 4 * a * c
+        root = discriminant.clamp_min(1e-24).sqrt()
+        q = -.5 * (b + torch.where(b >= 0, root, -root))
+        # Planes and some parabolic/hyperbolic ray directions are linear.
+        linear = a == 0
+        safe_a = torch.where(linear, torch.ones_like(a), a)
+        safe_q = torch.where(q.abs() > 1e-24, q, torch.ones_like(q))
+        times = torch.stack((q / safe_a, c / safe_q), dim=-1)
+        zs = origin[..., 2, None] + times * direction[..., 2, None]
+        branch = 1 - (1 + conic[..., None]) * curvature[..., None] * zs >= -1e-10
+        index = torch.where(branch, times.abs(), torch.inf).argmin(-1, keepdim=True)
+        travel = times.gather(-1, index).squeeze(-1)
+        travel = torch.where(linear, c / safe_q, travel)
+        vertex = 1 - (1 + conic) * curvature * (origin[..., 2] + travel * direction[..., 2]) >= -1e-10
+        valid = (discriminant > 0) & vertex & (~linear | (b.abs() > 1e-12))
+        ray.valid &= valid & torch.isfinite(travel)
+        ray.o = origin + travel[..., None] * direction
         return ray
     
     def newton(self, surf, ray:Ray, mode):

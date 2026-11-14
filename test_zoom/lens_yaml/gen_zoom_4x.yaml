@@ -19,22 +19,12 @@ VIG: {
 }
 AZIMUTHS: [0.]
 
-GROUP_STRUCTURE: 'MMMF'
+GROUP_STRUCTURE: 'MMMM'
 
-GROUP_TYPE: 'DS|DS|DS|S' # S: siglets, D: doublets
-SURF_TYPE: 'SS|SS|SS|A' # S: Sphere, A: Asphere, Q: Qcon
-MAT_TYPE: 'MR|MR|MR|R' # K: Crown, F: Flint, M: Mix, R: Random
-MAT_CATA: 'GG|GG|GG|G' # G: Glass, P: Plastic
-
-# GROUP_TYPE: 'SD|DS|DS|D' # S: siglets, D: doublets
-# SURF_TYPE: 'AS|SS|SS|S' # S: Sphere, A: Asphere, Q: Qcon
-# MAT_TYPE: 'RR|RR|RR|R' # K: Crown, F: Flint, M: Mix, R: Random
-# MAT_CATA: 'GG|GG|GG|G' # G: Glass, P: Plastic
-
-# GROUP_TYPE: 'SD|SD|SD|S' # S: siglets, D: doublets
-# SURF_TYPE: 'AS|SS|SS|S' # S: Sphere, A: Asphere, Q: Qcon
-# MAT_TYPE: 'RR|RR|RR|R' # K: Crown, F: Flint, M: Mix, R: Random
-# MAT_CATA: 'GG|GG|GG|G' # G: Glass, P: Plastic
+GROUP_TYPE: 'DS|SD|SD|SD' # S: siglets, D: doublets
+SURF_TYPE: 'SS|SS|SS|SS' # S: Sphere, A: Asphere, Q: Qcon
+MAT_TYPE: 'MR|RM|RM|RM' # K: Crown, F: Flint, M: Mix, R: Random
+MAT_CATA: 'GG|GG|GG|GG' # G: Glass, P: Plastic
 
 DELANO_SYS: 50000
 LR_DELANO: 1.e-3
@@ -59,7 +49,7 @@ MERIT: {
   LATERAL: {ref: 'rms', weight: 0.4},
   # B
   BFL: {target: 10., weight: 1.},
-  TOTR: {target: 30., weight: 1.}, # shortest total track, mm
+  TOTR: {target: 40., weight: 1.}, # shortest total track, mm
   EXTENSION: {min: 5., max: 20., weight: 5.}, # mm, wide to tele
   GLA_MIN_THICK: {min_thick: 1.0, td_ratio: 0.04, weight: 200.},
   GLA_MAX_THICK: {max_thick: 10.0, td_ratio: 1.0, weight: 1.},
@@ -88,7 +78,7 @@ PRE_OPT: False
 
 EPOCH: [2000, 500, 500, 500, 500, 500, 500, 500, 500, 500, 500]
 MAX_STATE_T: 2000
-ADD_PARAM: [['ai4'], null, null, null, null, null, null, null, null, null, null]
+ADD_PARAM: [null, null, null, null, null, null, null, null, null, null, null]
 OPT_MAT_STAGE: [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0]
 LR_OPT: 2.e-3
 LR_SCALE: 10.

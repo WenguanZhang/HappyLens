@@ -190,6 +190,10 @@ class Sphere(nn.Module):
         mode: 'forward' / 'reverse'
         """
         return self.solver.solve(self, ray, mode)
+
+    def is_sphere(self):
+        """Only the base surface has no additional aspheric terms."""
+        return type(self) is Sphere
     
     def judge_valid(self, o):
         match self.aperture:
